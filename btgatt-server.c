@@ -309,7 +309,6 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 		strncpy(server->wifi_name, value, len);
 		server->wifi_len = len;
 	}
-		//memcpy(server->wifi_name, value, len);
 
 	PRLOG("name %s", server->wifi_name);
 
@@ -335,14 +334,12 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 		free(server->wifi_password);
 		server->wifi_password = NULL;
 		server->wifi_password_len = 0;
-		PRLOG("ooops1");
 		goto done;
 	}
 
 	/* Implement this as a variable length attribute value. */
 	if (offset > server->wifi_password_len) {
 		error = BT_ATT_ERROR_INVALID_OFFSET;
-				PRLOG("ooops2");
 		goto done;
 	}
 
@@ -352,8 +349,6 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 		name = realloc(server->wifi_password, offset + len);
 		if (!name) {
 			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
-					PRLOG("ooops3");
-
 			goto done;
 		}
 
@@ -361,33 +356,21 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 		server->wifi_password_len = offset + len;
 	}
 
-	PRLOG("ok4");
-
 	if (value)
 	{
 		strncpy(server->wifi_password, value, len);
 		server->wifi_password_len = len;
 	}
 
-		PRLOG("ok5");
-
 	char connect_to_wifi[100] = "sudo nmcli d wifi connect ";
-	//const char* nmcli 
 	char* SSID = server->wifi_name;
 	const char* password_word = " password ";
 	char* PASS = server->wifi_password;
 
-	PRLOG("%s", PASS);
-
-
-	//strncpy(connect_to_wifi, nmcli);
   	strncat(connect_to_wifi, SSID, server->wifi_len);
 	strncat(connect_to_wifi, password_word, 10);
 	strncat(connect_to_wifi, PASS, server->wifi_password_len);
 	strncat(connect_to_wifi, "\0", 1);
-
-	char scan[64] = "sudo iwlist wlp59s0 scanning essid ";
-	strncat(scan, SSID, server->wifi_len);
 
 	PRLOG("%s", connect_to_wifi);
 	system("sudo nmcli device wifi list > /dev/null 2>&1");
