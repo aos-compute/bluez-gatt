@@ -43,6 +43,12 @@
 #include "src/shared/gatt-db.h"
 #include "src/shared/gatt-server.h"
 
+//#include <glib-2.0/glib.h>
+#include <glib-2.0/glib.h>
+#include <NetworkManager/NetworkManager.h>
+#include <libnm-glib/libnm_glib.h>
+#include <libnm-glib/nm-client.h>
+
 #define UUID_GAP			0x1800
 #define UUID_GATT			0x1801
 #define UUID_HEART_RATE			0x180d
@@ -71,8 +77,12 @@
 #define COLOR_BOLDGRAY	"\x1B[1;30m"
 #define COLOR_BOLDWHITE	"\x1B[1;37m"
 
-static const char test_device_name[] = "Very Long Test Device Name For Testing "
-				"ATT Protocol Operations On GATT Server";
+static const char test_device_name[] = "TEST ATT Protocol Operations On GATT Server";
+
+static const char test_wifi_name[] = "WIFI TEST NAME";
+
+static const char test_wifi_password[] = "12345678";
+
 static bool verbose = false;
 
 struct server {
@@ -83,6 +93,12 @@ struct server {
 
 	uint8_t *device_name;
 	size_t name_len;
+	
+	uint8_t *wifi_name;
+	size_t wifi_len;
+
+	uint8_t *wifi_password;
+	size_t wifi_password_len;
 
 	uint16_t gatt_svc_chngd_handle;
 	bool svc_chngd_enabled;
@@ -150,6 +166,58 @@ done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
 }
 
+static void gap_device_wifi_read_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+	size_t len = 0;
+	const uint8_t *value = NULL;
+
+	PRLOG("GAP WiFi Name Read called\n");
+
+	len = server->wifi_len;
+
+	if (offset > len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	len -= offset;
+	value = len ? &server->wifi_name[offset] : NULL;
+
+done:
+	gatt_db_attribute_read_result(attrib, id, error, value, len);
+}
+
+static void gap_device_wifi_password_read_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+	size_t len = 0;
+	const uint8_t *value = NULL;
+
+	PRLOG("GAP WiFi Password Read called\n");
+
+	len = server->wifi_password_len;
+
+	if (offset > len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	len -= offset;
+	value = len ? &server->wifi_password[offset] : NULL;
+
+done:
+	gatt_db_attribute_read_result(attrib, id, error, value, len);
+}
+
 static void gap_device_name_write_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					const uint8_t *value, size_t len,
@@ -192,6 +260,141 @@ static void gap_device_name_write_cb(struct gatt_db_attribute *attrib,
 		memcpy(server->device_name + offset, value, len);
 
 done:
+	gatt_db_attribute_write_result(attrib, id, error);
+}
+
+static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+
+	PRLOG("GAP WiFi Name Write called\n");
+
+	PRLOG("%s %d %d", value, offset, len);
+
+
+	/* If the value is being completely truncated, clean up and return */
+	if (!(offset + len)) {
+		free(server->wifi_name);
+		server->wifi_name = NULL;
+		server->wifi_len = 0;
+		goto done;
+	}
+
+	/* Implement this as a variable length attribute value. */
+	if (offset > server->wifi_len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	if (offset + len != server->wifi_len) {
+		uint8_t *name;
+
+		name = realloc(server->wifi_name, offset + len);
+		if (!name) {
+			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+			goto done;
+		}
+
+		server->wifi_name = name;
+		server->wifi_len = offset + len;
+	}
+
+	if (value)
+	{
+		strncpy(server->wifi_name, value, len);
+		server->wifi_len = len;
+	}
+		//memcpy(server->wifi_name, value, len);
+
+	PRLOG("name %s", server->wifi_name);
+
+done:
+	gatt_db_attribute_write_result(attrib, id, error);
+}
+
+static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+
+	PRLOG("GAP WiFi Password Write called\n");
+
+	PRLOG("%s %d %d", value, offset, len);
+
+	/* If the value is being completely truncated, clean up and return */
+	if (!(offset + len)) {
+		free(server->wifi_password);
+		server->wifi_password = NULL;
+		server->wifi_password_len = 0;
+		PRLOG("ooops1");
+		goto done;
+	}
+
+	/* Implement this as a variable length attribute value. */
+	if (offset > server->wifi_password_len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+				PRLOG("ooops2");
+		goto done;
+	}
+
+	if (offset + len != server->wifi_password_len) {
+		uint8_t *name;
+
+		name = realloc(server->wifi_password, offset + len);
+		if (!name) {
+			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+					PRLOG("ooops3");
+
+			goto done;
+		}
+
+		server->wifi_password = name;
+		server->wifi_password_len = offset + len;
+	}
+
+	PRLOG("ok4");
+
+	if (value)
+	{
+		strncpy(server->wifi_password, value, len);
+		server->wifi_password_len = len;
+	}
+
+		PRLOG("ok5");
+
+	char connect_to_wifi[100] = "sudo nmcli d wifi connect ";
+	//const char* nmcli 
+	char* SSID = server->wifi_name;
+	const char* password_word = " password ";
+	char* PASS = server->wifi_password;
+
+	PRLOG("%s", PASS);
+
+
+	//strncpy(connect_to_wifi, nmcli);
+  	strncat(connect_to_wifi, SSID, server->wifi_len);
+	strncat(connect_to_wifi, password_word, 10);
+	strncat(connect_to_wifi, PASS, server->wifi_password_len);
+	strncat(connect_to_wifi, "\0", 1);
+
+	char scan[64] = "sudo iwlist wlp59s0 scanning essid ";
+	strncat(scan, SSID, server->wifi_len);
+
+	PRLOG("%s", connect_to_wifi);
+	system("sudo nmcli device wifi list > /dev/null 2>&1");
+	system(connect_to_wifi);
+
+done:
+	PRLOG("done");
 	gatt_db_attribute_write_result(attrib, id, error);
 }
 
@@ -410,7 +613,7 @@ static void populate_gap_service(struct server *server)
 
 	/* Add the GAP service */
 	bt_uuid16_create(&uuid, UUID_GAP);
-	service = gatt_db_add_service(server->db, &uuid, true, 6);
+	service = gatt_db_add_service(server->db, &uuid, true, 10);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -450,6 +653,36 @@ static void populate_gap_service(struct server *server)
 							BT_ATT_OP_WRITE_REQ,
 							NULL, confirm_write,
 							NULL);
+
+	/*
+	 * WiFi Name characteristic. Make the value dynamically read and
+	 * written via callbacks.
+	 */
+	bt_uuid16_create(&uuid, GATT_CHARAC_WIFI_NAME);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE | BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP,
+					gap_device_wifi_read_cb,
+					gap_device_wifi_write_cb,
+					server);
+
+	gatt_db_service_set_active(service, true);
+
+			/*
+	 * WiFi Password characteristic. Make the value dynamically read and
+	 * written via callbacks.
+	 */
+	bt_uuid16_create(&uuid, GATT_CHARAC_WIFI_PASSWORD);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP,
+					gap_device_wifi_password_read_cb,
+					gap_device_wifi_password_write_cb,
+					server);
 
 	gatt_db_service_set_active(service, true);
 }
@@ -543,6 +776,8 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 	struct server *server;
 	size_t name_len = strlen(test_device_name);
 
+	size_t wifi_len = strlen(test_wifi_name);
+
 	server = new0(struct server, 1);
 	if (!server) {
 		fprintf(stderr, "Failed to allocate memory for server\n");
@@ -566,6 +801,7 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 		goto fail;
 	}
 
+//todo for wifi?
 	server->name_len = name_len + 1;
 	server->device_name = malloc(name_len + 1);
 	if (!server->device_name) {
@@ -575,6 +811,18 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 
 	memcpy(server->device_name, test_device_name, name_len);
 	server->device_name[name_len] = '\0';
+
+
+	server->wifi_len = wifi_len + 1;
+	server->wifi_name = malloc(wifi_len + 1);
+	if (!server->wifi_name) {
+		fprintf(stderr, "Failed to allocate memory for wifi name\n");
+		goto fail;
+	}
+
+	memcpy(server->wifi_name, test_wifi_name, wifi_len);
+	server->wifi_name[wifi_len] = '\0';
+
 
 	server->fd = fd;
 	server->db = gatt_db_new();
@@ -608,6 +856,7 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 fail:
 	gatt_db_unref(server->db);
 	free(server->device_name);
+	free(server->wifi_name);
 	bt_att_unref(server->att);
 	free(server);
 
@@ -1209,6 +1458,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	// NMClient *client;
+
+	// client = nm_client_new();
+	// if (client)
+	// 	g_print ("NetworkManager version: %s\n", nm_client_get_version (client));
+
+
 	argc -= optind;
 	argv -= optind;
 	optind = 0;
@@ -1225,6 +1481,12 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	int hciDeviceId = hci_get_route(NULL);
+	int hciSocket = hci_open_dev(hciDeviceId);
+		
+	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
+	printf("advertise is enabled %d \n", res);
+
 	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
 	if (fd < 0) {
 		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
@@ -1232,6 +1494,8 @@ int main(int argc, char *argv[])
 	}
 
 	mainloop_init();
+
+
 
 	server = server_create(fd, mtu, hr_visible);
 	if (!server) {
@@ -1257,6 +1521,8 @@ int main(int argc, char *argv[])
 	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
 
 	print_prompt();
+
+
 
 	mainloop_run();
 

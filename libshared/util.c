@@ -327,12 +327,12 @@ static const struct {
 	{ 0x2a08, "Date Time"					},
 	{ 0x2a09, "Day of Week"					},
 	{ 0x2a0a, "Day Date Time"				},
-	/* 0x2a0b undefined */
+	{ 0x293f, "WiFi Name"					},
 	{ 0x2a0c, "Exact Time 256"				},
 	{ 0x2a0d, "DST Offset"					},
 	{ 0x2a0e, "Time Zone"					},
 	{ 0x2a0f, "Local Time Information"			},
-	/* 0x2a10 undefined */
+	{ 0x2a10, "WiFi Password"					},
 	{ 0x2a11, "Time with DST"				},
 	{ 0x2a12, "Time Accuracy"				},
 	{ 0x2a13, "Time Source"					},
