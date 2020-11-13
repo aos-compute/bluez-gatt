@@ -57,7 +57,7 @@ target_link_libraries(${PROJECT_NAME} bluetooth shared)
 
 #include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
-install(TARGETS shared LIBRARY DESTINATION lib)
-install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)
+install(TARGETS shared LIBRARY DESTINATION /usr/lib/x86_64-linux-gnu/)
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION /usr/lib/x86_64-linux-gnu/)
 install(DIRECTORY includes DESTINATION include)
 
