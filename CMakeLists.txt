@@ -39,6 +39,8 @@ include_directories(includes/lib)
 add_subdirectory(libbluetooth)
 add_subdirectory(libshared)
 
+set(CMAKE_C_FLAGS "-Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
+
 # btgatt-client
 add_executable(btgatt-client
     btgatt-client.c)
