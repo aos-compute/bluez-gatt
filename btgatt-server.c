@@ -43,11 +43,11 @@
 #include "src/shared/gatt-db.h"
 #include "src/shared/gatt-server.h"
 
-//#include <glib-2.0/glib.h>
 #include <glib-2.0/glib.h>
 #include <NetworkManager/NetworkManager.h>
 #include <libnm-glib/libnm_glib.h>
 #include <libnm-glib/nm-client.h>
+#include "btgatt-server.h"
 
 #define UUID_GAP			0x1800
 #define UUID_GATT			0x1801
@@ -1515,3 +1515,73 @@ int main(int argc, char *argv[])
 
 	return EXIT_SUCCESS;
 }
+
+
+
+int run()
+{
+	bdaddr_t src_addr;
+	int dev_id = -1;
+	int fd;
+	int sec = BT_SECURITY_LOW;
+	uint8_t src_type = BDADDR_LE_PUBLIC;
+	uint16_t mtu = 0;
+	sigset_t mask;
+	bool hr_visible = false;
+	struct server *server;
+
+	if (dev_id == -1)
+		bacpy(&src_addr, BDADDR_ANY);
+	else if (hci_devba(dev_id, &src_addr) < 0) {
+		perror("Adapter not available");
+		return EXIT_FAILURE;
+	}
+
+	int hciDeviceId = hci_get_route(NULL);
+	int hciSocket = hci_open_dev(hciDeviceId);
+		
+	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
+	printf("advertise is enabled %d \n", res);
+
+	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
+	if (fd < 0) {
+		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
+		return EXIT_FAILURE;
+	}
+
+	mainloop_init();
+
+	server = server_create(fd, mtu, hr_visible);
+	if (!server) {
+		close(fd);
+		return EXIT_FAILURE;
+	}
+
+	if (mainloop_add_fd(fileno(stdin),
+				EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
+				prompt_read_cb, server, NULL) < 0) {
+		fprintf(stderr, "Failed to initialize console\n");
+		server_destroy(server);
+
+		return EXIT_FAILURE;
+	}
+
+	printf("Running GATT server\n");
+
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGTERM);
+
+	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
+
+	print_prompt();
+
+	mainloop_run();
+
+	printf("\n\nShutting down...\n");
+
+	server_destroy(server);
+
+	return EXIT_SUCCESS;
+}
+

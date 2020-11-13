@@ -47,7 +47,7 @@ target_link_libraries(btgatt-client bluetooth shared)
 
 # btgatt-server
 add_executable(btgatt-server
-    btgatt-server.c)
+    btgatt-server.c btgatt-server.h)
 
 target_link_libraries(btgatt-server bluetooth shared)
 #target_link_libraries(btgatt-server ${GLIB_LIBRARIES} ${NMLIB_LIBRARIES} ${NMLIB_LIBRARY_DIRS} ${NM-UTIL_LIBRARY_DIRS} ${NETWORKMANAGER_LIBRARIES} ${NETWORKMANAGER_LIBRARY_DIRS} ${NM-UTIL_LIBRARY_DIRS})
@@ -64,7 +64,7 @@ add_executable(thingy
 
 target_link_libraries(thingy bluetooth shared)
 
-add_library(${PROJECT_NAME} SHARED btgatt-server.c)
+add_library(${PROJECT_NAME} SHARED btgatt-server.c btgatt-server.h)
 
 include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
