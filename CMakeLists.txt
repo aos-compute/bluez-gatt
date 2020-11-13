@@ -42,10 +42,10 @@ add_subdirectory(libshared)
 set(CMAKE_C_FLAGS "-Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
 
 # btgatt-client
-add_executable(btgatt-client
-    btgatt-client.c)
+#add_executable(btgatt-client
+#    btgatt-client.c)
 
-target_link_libraries(btgatt-client bluetooth shared)
+#target_link_libraries(btgatt-client bluetooth shared)
 
 # btgatt-server
 add_executable(btgatt-server
@@ -61,12 +61,15 @@ link_directories(${LIB_NM_LIBRARY_DIRS})
 target_link_libraries(btgatt-server ${GLIB_LIBRARIES}  ${LIB_NM_LIBRARIES})
 
 # thingy.c
-add_executable(thingy
-    thingy.c)
+#add_executable(thingy
+#    thingy.c)
 
-target_link_libraries(thingy bluetooth shared)
+#target_link_libraries(thingy bluetooth shared)
 
 add_library(${PROJECT_NAME} SHARED btgatt-server.c btgatt-server.h)
 
 include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
+
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)
+install(DIRECTORY bluez-gatt DESTINATION include)
 
