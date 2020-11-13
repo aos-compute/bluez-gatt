@@ -25,6 +25,15 @@
  * the Generic Attribute Profile.
  */
 
+#ifndef GATT_HELPERS_H
+#define GATT_HELPERS_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -114,3 +123,9 @@ bool bt_gatt_read_by_type(struct bt_att *att, uint16_t start, uint16_t end,
 					bt_gatt_request_callback_t callback,
 					void *user_data,
 					bt_gatt_destroy_func_t destroy);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

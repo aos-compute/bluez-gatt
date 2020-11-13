@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef __UTIL_H
+#define __UTIL_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <alloca.h>
@@ -185,3 +194,10 @@ static inline void put_be64(uint64_t val, void *dst)
 {
 	put_unaligned(cpu_to_be64(val), (uint64_t *) dst);
 }
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

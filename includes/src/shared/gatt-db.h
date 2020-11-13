@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef GATT_DB_H
+#define GATT_DB_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct gatt_db;
 struct gatt_db_attribute;
 
@@ -267,3 +276,9 @@ bool gatt_db_attribute_write_result(struct gatt_db_attribute *attrib,
 bool gatt_db_attribute_reset(struct gatt_db_attribute *attrib);
 
 void *gatt_db_attribute_get_user_data(struct gatt_db_attribute *attrib);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

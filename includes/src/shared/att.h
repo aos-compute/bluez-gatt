@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef __ATT_H
+#define __ATT_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -93,3 +102,9 @@ bool bt_att_set_local_key(struct bt_att *att, uint8_t sign_key[16],
 bool bt_att_set_remote_key(struct bt_att *att, uint8_t sign_key[16],
 			bt_att_counter_func_t func, void *user_data);
 bool bt_att_has_crypto(struct bt_att *att);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

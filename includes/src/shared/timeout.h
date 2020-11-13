@@ -17,6 +17,15 @@
  *
  */
 
+#ifndef __TIMEOUT_H
+#define __TIMEOUT_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 
 typedef bool (*timeout_func_t)(void *user_data);
@@ -25,3 +34,9 @@ typedef void (*timeout_destroy_func_t)(void *user_data);
 unsigned int timeout_add(unsigned int timeout, timeout_func_t func,
 			void *user_data, timeout_destroy_func_t destroy);
 void timeout_remove(unsigned int id);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

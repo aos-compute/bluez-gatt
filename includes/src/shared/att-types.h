@@ -20,6 +20,8 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#ifndef __ATT_TYPES_H
+#define __ATT_TYPES_H
 
 #include <stdint.h>
 
@@ -154,3 +156,5 @@ struct bt_att_pdu_error_rsp {
 #define BT_GATT_CHRC_EXT_PROP_AUTH_WRITE		0x20
 #define BT_GATT_CHRC_EXT_PROP_AUTH	(BT_GATT_CHRC_EXT_PROP_AUTH_READ | \
 					BT_GATT_CHRC_EXT_PROP_AUTH_WRITE)
+
+#endif

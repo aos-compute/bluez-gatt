@@ -22,6 +22,15 @@
  *
  */
 
+#ifndef __MAINLOOP_H
+#define __MAINLOOP_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <signal.h>
 #include <sys/epoll.h>
 
@@ -49,3 +58,9 @@ int mainloop_remove_timeout(int id);
 
 int mainloop_set_signal(sigset_t *mask, mainloop_signal_func callback,
 				void *user_data, mainloop_destroy_func destroy);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

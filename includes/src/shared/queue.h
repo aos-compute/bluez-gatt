@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef __QUEUE_H
+#define __QUEUE_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 
 typedef void (*queue_destroy_func_t)(void *data);
@@ -62,3 +71,9 @@ const struct queue_entry *queue_get_entries(struct queue *queue);
 
 unsigned int queue_length(struct queue *queue);
 bool queue_isempty(struct queue *queue);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

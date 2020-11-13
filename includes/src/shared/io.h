@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef __IO_H
+#define __IO_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <sys/uio.h>
 
@@ -45,3 +54,9 @@ bool io_set_write_handler(struct io *io, io_callback_func_t callback,
 				void *user_data, io_destroy_func_t destroy);
 bool io_set_disconnect_handler(struct io *io, io_callback_func_t callback,
 				void *user_data, io_destroy_func_t destroy);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -21,6 +21,15 @@
  *
  */
 
+#ifndef GATT_CLIENT_H
+#define GATT_CLIENT_H
+
+/* This ifdef allows the header to be used from both C and C++ 
+ * because C does not know what this extern "C" thing is. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -136,3 +145,9 @@ bool bt_gatt_client_unregister_notify(struct bt_gatt_client *client,
 
 bool bt_gatt_client_set_security(struct bt_gatt_client *client, int level);
 int bt_gatt_client_get_security(struct bt_gatt_client *client);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
