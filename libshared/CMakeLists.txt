@@ -1,4 +1,4 @@
-add_library(shared
+add_library(shared SHARED
     att.c
     crypto.c
     gatt-client.c

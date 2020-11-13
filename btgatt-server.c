@@ -43,10 +43,10 @@
 #include "src/shared/gatt-db.h"
 #include "src/shared/gatt-server.h"
 
-#include <glib-2.0/glib.h>
-#include <NetworkManager/NetworkManager.h>
-#include <libnm-glib/libnm_glib.h>
-#include <libnm-glib/nm-client.h>
+//#include <glib-2.0/glib.h>
+//#include <NetworkManager/NetworkManager.h>
+//#include <libnm-glib/libnm_glib.h>
+//#include <libnm-glib/nm-client.h>
 #include "btgatt-server.h"
 
 #define UUID_GAP			0x1800

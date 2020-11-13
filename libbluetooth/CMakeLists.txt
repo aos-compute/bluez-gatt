@@ -1,4 +1,4 @@
-add_library(bluetooth
+add_library(bluetooth SHARED
     bluetooth.c
     hci.c
     uuid.c
