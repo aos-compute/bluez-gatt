@@ -30,6 +30,15 @@ include_directories(includes/lib)
 add_subdirectory(libbluetooth)
 add_subdirectory(libshared)
 
+
+file(GLOB SRC
+            "*.h"
+            "*.c"
+            "includes/*.h"
+            "includes/src/shared/*.h"
+            "includes/lib/*.h"
+    )
+
 set(CMAKE_C_FLAGS "-Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
 
 # btgatt-server
@@ -43,7 +52,7 @@ include_directories(${LIB_NM_INCLUDE_DIRS})
 link_directories(${LIB_NM_LIBRARY_DIRS})
 target_link_libraries(btgatt-server ${GLIB_LIBRARIES}  ${LIB_NM_LIBRARIES})
 
-add_library(${PROJECT_NAME} SHARED btgatt-server.c includes/btgatt-server.h)
+add_library(${PROJECT_NAME} SHARED ${SRC})
 
 include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
