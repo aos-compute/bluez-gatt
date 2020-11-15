@@ -41,6 +41,8 @@ file(GLOB SRC
 
 set(CMAKE_C_FLAGS "-no-pie -Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
 
+SET(DBUILD_SHARED_LIBS ON)
+
 # btgatt-server
 add_executable(btgatt-server
     btgatt-server.c includes/btgatt-server.h)
