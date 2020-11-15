@@ -1,5 +1,7 @@
-add_library(bluetooth SHARED
-    bluetooth.c
-    hci.c
-    uuid.c
+file(GLOB SRC
+            "*.c"
+            "../includes/lib/*.h"
+    )
+
+add_library(bluetooth SHARED ${SRC}
 )

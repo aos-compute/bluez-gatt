@@ -1,13 +1,6 @@
-add_library(shared SHARED
-    att.c
-    crypto.c
-    gatt-client.c
-    gatt-db.c
-    gatt-helpers.c
-    gatt-server.c
-    io-mainloop.c
-    mainloop.c
-    queue.c
-    timeout-mainloop.c
-    util.c
-)
+file(GLOB SRC
+            "*.c"
+            "../includes/src/shared/*.h"
+    )
+
+add_library(shared SHARED ${SRC} )
