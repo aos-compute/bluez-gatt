@@ -59,7 +59,7 @@ target_link_libraries(${PROJECT_NAME} bluetooth shared)
 
 #include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
-install(TARGETS shared LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
-install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
+install(TARGETS shared LIBRARY DESTINATION shared_libs)
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION shared_libs)
 install(DIRECTORY includes DESTINATION include)
 
