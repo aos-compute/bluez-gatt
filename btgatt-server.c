@@ -1362,159 +1362,159 @@ static void signal_cb(int signum, void *user_data)
 	}
 }
 
-int main(int argc, char *argv[])
-{
-	int opt;
-	bdaddr_t src_addr;
-	int dev_id = -1;
-	int fd;
-	int sec = BT_SECURITY_LOW;
-	uint8_t src_type = BDADDR_LE_PUBLIC;
-	uint16_t mtu = 0;
-	sigset_t mask;
-	bool hr_visible = false;
-	struct server *server;
+// int main(int argc, char *argv[])
+// {
+// 	int opt;
+// 	bdaddr_t src_addr;
+// 	int dev_id = -1;
+// 	int fd;
+// 	int sec = BT_SECURITY_LOW;
+// 	uint8_t src_type = BDADDR_LE_PUBLIC;
+// 	uint16_t mtu = 0;
+// 	sigset_t mask;
+// 	bool hr_visible = false;
+// 	struct server *server;
 
-	while ((opt = getopt_long(argc, argv, "+hvrs:t:m:i:",
-						main_options, NULL)) != -1) {
-		switch (opt) {
-		case 'h':
-			usage();
-			return EXIT_SUCCESS;
-		case 'v':
-			verbose = true;
-			break;
-		case 'r':
-			hr_visible = true;
-			break;
-		case 's':
-			if (strcmp(optarg, "low") == 0)
-				sec = BT_SECURITY_LOW;
-			else if (strcmp(optarg, "medium") == 0)
-				sec = BT_SECURITY_MEDIUM;
-			else if (strcmp(optarg, "high") == 0)
-				sec = BT_SECURITY_HIGH;
-			else {
-				fprintf(stderr, "Invalid security level\n");
-				return EXIT_FAILURE;
-			}
-			break;
-		case 't':
-			if (strcmp(optarg, "random") == 0)
-				src_type = BDADDR_LE_RANDOM;
-			else if (strcmp(optarg, "public") == 0)
-				src_type = BDADDR_LE_PUBLIC;
-			else {
-				fprintf(stderr,
-					"Allowed types: random, public\n");
-				return EXIT_FAILURE;
-			}
-			break;
-		case 'm': {
-			int arg;
+// 	while ((opt = getopt_long(argc, argv, "+hvrs:t:m:i:",
+// 						main_options, NULL)) != -1) {
+// 		switch (opt) {
+// 		case 'h':
+// 			usage();
+// 			return EXIT_SUCCESS;
+// 		case 'v':
+// 			verbose = true;
+// 			break;
+// 		case 'r':
+// 			hr_visible = true;
+// 			break;
+// 		case 's':
+// 			if (strcmp(optarg, "low") == 0)
+// 				sec = BT_SECURITY_LOW;
+// 			else if (strcmp(optarg, "medium") == 0)
+// 				sec = BT_SECURITY_MEDIUM;
+// 			else if (strcmp(optarg, "high") == 0)
+// 				sec = BT_SECURITY_HIGH;
+// 			else {
+// 				fprintf(stderr, "Invalid security level\n");
+// 				return EXIT_FAILURE;
+// 			}
+// 			break;
+// 		case 't':
+// 			if (strcmp(optarg, "random") == 0)
+// 				src_type = BDADDR_LE_RANDOM;
+// 			else if (strcmp(optarg, "public") == 0)
+// 				src_type = BDADDR_LE_PUBLIC;
+// 			else {
+// 				fprintf(stderr,
+// 					"Allowed types: random, public\n");
+// 				return EXIT_FAILURE;
+// 			}
+// 			break;
+// 		case 'm': {
+// 			int arg;
 
-			arg = atoi(optarg);
-			if (arg <= 0) {
-				fprintf(stderr, "Invalid MTU: %d\n", arg);
-				return EXIT_FAILURE;
-			}
+// 			arg = atoi(optarg);
+// 			if (arg <= 0) {
+// 				fprintf(stderr, "Invalid MTU: %d\n", arg);
+// 				return EXIT_FAILURE;
+// 			}
 
-			if (arg > UINT16_MAX) {
-				fprintf(stderr, "MTU too large: %d\n", arg);
-				return EXIT_FAILURE;
-			}
+// 			if (arg > UINT16_MAX) {
+// 				fprintf(stderr, "MTU too large: %d\n", arg);
+// 				return EXIT_FAILURE;
+// 			}
 
-			mtu = (uint16_t) arg;
-			break;
-		}
-		case 'i':
-			dev_id = hci_devid(optarg);
-			if (dev_id < 0) {
-				perror("Invalid adapter");
-				return EXIT_FAILURE;
-			}
+// 			mtu = (uint16_t) arg;
+// 			break;
+// 		}
+// 		case 'i':
+// 			dev_id = hci_devid(optarg);
+// 			if (dev_id < 0) {
+// 				perror("Invalid adapter");
+// 				return EXIT_FAILURE;
+// 			}
 
-			break;
-		default:
-			fprintf(stderr, "Invalid option: %c\n", opt);
-			return EXIT_FAILURE;
-		}
-	}
+// 			break;
+// 		default:
+// 			fprintf(stderr, "Invalid option: %c\n", opt);
+// 			return EXIT_FAILURE;
+// 		}
+// 	}
 
-	// NMClient *client;
+// 	// NMClient *client;
 
-	// client = nm_client_new();
-	// if (client)
-	// 	g_print ("NetworkManager version: %s\n", nm_client_get_version (client));
+// 	// client = nm_client_new();
+// 	// if (client)
+// 	// 	g_print ("NetworkManager version: %s\n", nm_client_get_version (client));
 
 
-	argc -= optind;
-	argv -= optind;
-	optind = 0;
+// 	argc -= optind;
+// 	argv -= optind;
+// 	optind = 0;
 
-	if (argc) {
-		usage();
-		return EXIT_SUCCESS;
-	}
+// 	if (argc) {
+// 		usage();
+// 		return EXIT_SUCCESS;
+// 	}
 
-	if (dev_id == -1)
-		bacpy(&src_addr, BDADDR_ANY);
-	else if (hci_devba(dev_id, &src_addr) < 0) {
-		perror("Adapter not available");
-		return EXIT_FAILURE;
-	}
+// 	if (dev_id == -1)
+// 		bacpy(&src_addr, BDADDR_ANY);
+// 	else if (hci_devba(dev_id, &src_addr) < 0) {
+// 		perror("Adapter not available");
+// 		return EXIT_FAILURE;
+// 	}
 
-	int hciDeviceId = hci_get_route(NULL);
-	int hciSocket = hci_open_dev(hciDeviceId);
+// 	int hciDeviceId = hci_get_route(NULL);
+// 	int hciSocket = hci_open_dev(hciDeviceId);
 		
-	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
-	printf("advertise is enabled %d \n", res);
+// 	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
+// 	printf("advertise is enabled %d \n", res);
 
-	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
-	if (fd < 0) {
-		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
-		return EXIT_FAILURE;
-	}
+// 	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
+// 	if (fd < 0) {
+// 		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
+// 		return EXIT_FAILURE;
+// 	}
 
-	mainloop_init();
-
-
-
-	server = server_create(fd, mtu, hr_visible);
-	if (!server) {
-		close(fd);
-		return EXIT_FAILURE;
-	}
-
-	if (mainloop_add_fd(fileno(stdin),
-				EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
-				prompt_read_cb, server, NULL) < 0) {
-		fprintf(stderr, "Failed to initialize console\n");
-		server_destroy(server);
-
-		return EXIT_FAILURE;
-	}
-
-	printf("Running GATT server\n");
-
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGINT);
-	sigaddset(&mask, SIGTERM);
-
-	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
-
-	print_prompt();
+// 	mainloop_init();
 
 
 
-	mainloop_run();
+// 	server = server_create(fd, mtu, hr_visible);
+// 	if (!server) {
+// 		close(fd);
+// 		return EXIT_FAILURE;
+// 	}
 
-	printf("\n\nShutting down...\n");
+// 	if (mainloop_add_fd(fileno(stdin),
+// 				EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
+// 				prompt_read_cb, server, NULL) < 0) {
+// 		fprintf(stderr, "Failed to initialize console\n");
+// 		server_destroy(server);
 
-	server_destroy(server);
+// 		return EXIT_FAILURE;
+// 	}
 
-	return EXIT_SUCCESS;
-}
+// 	printf("Running GATT server\n");
+
+// 	sigemptyset(&mask);
+// 	sigaddset(&mask, SIGINT);
+// 	sigaddset(&mask, SIGTERM);
+
+// 	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
+
+// 	print_prompt();
+
+
+
+// 	mainloop_run();
+
+// 	printf("\n\nShutting down...\n");
+
+// 	server_destroy(server);
+
+// 	return EXIT_SUCCESS;
+// }
 
 
 

@@ -44,10 +44,8 @@ set(CMAKE_C_FLAGS "-no-pie -Wno-unused-but-set-parameter -Wno-unused-variable -W
 SET(DBUILD_SHARED_LIBS ON)
 
 # btgatt-server
-#add_executable(btgatt-server
-#    btgatt-server.c includes/btgatt-server.h)
+add_executable(main main.c)
 
-#target_link_libraries(btgatt-server aos_bluetooth aos_bt_shared)
 
 #pkg_check_modules(LIB_NM REQUIRED dbus-1 glib-2.0 dbus-glib-1 libnm-glib libnm-util)
 #include_directories(${LIB_NM_INCLUDE_DIRS})
@@ -59,8 +57,12 @@ target_link_libraries(${PROJECT_NAME} aos_bluetooth aos_bt_shared)
 
 #include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
-install(TARGETS aos_bt_shared LIBRARY DESTINATION shared_libs)
-install(TARGETS aos_bluetooth LIBRARY DESTINATION shared_libs)
-install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION shared_libs)
-install(DIRECTORY includes DESTINATION include)
+target_link_libraries(main ${PROJECT_NAME})
+
+message(STATUS "installation path: ${CMAKE_BINARY_DIR}/shared_libs")
+
+install(TARGETS aos_bt_shared LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
+install(TARGETS aos_bluetooth LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
+install(DIRECTORY includes DESTINATION ${CMAKE_BINARY_DIR}/include)
 
