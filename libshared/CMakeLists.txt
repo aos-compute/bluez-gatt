@@ -3,4 +3,4 @@ file(GLOB SRC
             "../includes/src/shared/*.h"
     )
 
-add_library(shared SHARED ${SRC} )
+add_library(aos_bt_shared SHARED ${SRC} )

@@ -47,7 +47,7 @@ SET(DBUILD_SHARED_LIBS ON)
 add_executable(btgatt-server
     btgatt-server.c includes/btgatt-server.h)
 
-target_link_libraries(btgatt-server bluetooth shared)
+target_link_libraries(btgatt-server aos_bluetooth aos_bt_shared)
 
 #pkg_check_modules(LIB_NM REQUIRED dbus-1 glib-2.0 dbus-glib-1 libnm-glib libnm-util)
 #include_directories(${LIB_NM_INCLUDE_DIRS})
@@ -55,11 +55,12 @@ target_link_libraries(btgatt-server bluetooth shared)
 #target_link_libraries(btgatt-server ${GLIB_LIBRARIES}  ${LIB_NM_LIBRARIES})
 
 add_library(${PROJECT_NAME} SHARED ${SRC})
-target_link_libraries(${PROJECT_NAME} bluetooth shared)
+target_link_libraries(${PROJECT_NAME} aos_bluetooth aos_bt_shared)
 
 #include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
-install(TARGETS shared LIBRARY DESTINATION shared_libs)
+install(TARGETS aos_bt_shared LIBRARY DESTINATION shared_libs)
+install(TARGETS aos_bluetooth LIBRARY DESTINATION shared_libs)
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION shared_libs)
 install(DIRECTORY includes DESTINATION include)
 

@@ -3,5 +3,5 @@ file(GLOB SRC
             "../includes/lib/*.h"
     )
 
-add_library(bluetooth SHARED ${SRC}
+add_library(aos_bluetooth SHARED ${SRC}
 )
