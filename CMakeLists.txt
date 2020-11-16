@@ -59,10 +59,10 @@ target_link_libraries(${PROJECT_NAME} aos_bluetooth aos_bt_shared)
 
 target_link_libraries(main ${PROJECT_NAME})
 
-message(STATUS "installation path: ${CMAKE_BINARY_DIR}/shared_libs")
+message(STATUS "installation path: ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/shared_libs")
 
-install(TARGETS aos_bt_shared LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
-install(TARGETS aos_bluetooth LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
-install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/shared_libs)
-install(DIRECTORY includes DESTINATION ${CMAKE_BINARY_DIR}/include)
+install(TARGETS aos_bt_shared LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/shared_libs)
+install(TARGETS aos_bluetooth LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/shared_libs)
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/shared_libs)
+install(DIRECTORY includes DESTINATION ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/include)
 
