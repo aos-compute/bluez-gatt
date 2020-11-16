@@ -59,8 +59,8 @@ target_link_libraries(${PROJECT_NAME} aos_bluetooth aos_bt_shared)
 
 #include_directories(${PROJECT_NAME} ${NETWORKMANAGER_INCLUDE_DIRS})
 
-#install(TARGETS aos_bt_shared LIBRARY DESTINATION shared_libs)
-#install(TARGETS aos_bluetooth LIBRARY DESTINATION shared_libs)
+install(TARGETS aos_bt_shared LIBRARY DESTINATION shared_libs)
+install(TARGETS aos_bluetooth LIBRARY DESTINATION shared_libs)
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION shared_libs)
 install(DIRECTORY includes DESTINATION include)
 
