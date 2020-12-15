@@ -328,6 +328,7 @@ static const struct {
 	{ 0x2a09, "Day of Week"					},
 	{ 0x2a0a, "Day Date Time"				},
 	{ 0x293f, "WiFi Name"					},
+	{ 0x294f, "Turn Off WiFi"				},
 	{ 0x2a0c, "Exact Time 256"				},
 	{ 0x2a0d, "DST Offset"					},
 	{ 0x2a0e, "Time Zone"					},

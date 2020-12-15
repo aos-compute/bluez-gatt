@@ -77,7 +77,7 @@
 #define COLOR_BOLDGRAY	"\x1B[1;30m"
 #define COLOR_BOLDWHITE	"\x1B[1;37m"
 
-static const char test_device_name[] = "TEST ATT Protocol Operations On GATT Server";
+static const char test_device_name[] = "Yezhik_1234";
 
 static const char test_wifi_name[] = "WIFI TEST NAME";
 
@@ -381,6 +381,27 @@ done:
 	gatt_db_attribute_write_result(attrib, id, error);
 }
 
+
+static void gap_device_wifi_turn_off_read_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+}
+
+static void gap_device_wifi_turn_off_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	PRLOG("GAP WiFi Turn off Write called\n");
+
+	system("sudo nmcli radio wifi off");
+
+	PRLOG("done");
+}
+
 static void gap_device_name_ext_prop_read_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					uint8_t opcode, struct bt_att *att,
@@ -596,7 +617,7 @@ static void populate_gap_service(struct server *server)
 
 	/* Add the GAP service */
 	bt_uuid16_create(&uuid, UUID_GAP);
-	service = gatt_db_add_service(server->db, &uuid, true, 10);
+	service = gatt_db_add_service(server->db, &uuid, true, 12);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -665,6 +686,21 @@ static void populate_gap_service(struct server *server)
 					BT_GATT_CHRC_PROP_EXT_PROP,
 					gap_device_wifi_password_read_cb,
 					gap_device_wifi_password_write_cb,
+					server);
+
+
+	/*
+	 * WiFi Turning off characteristic. Make the value dynamically read and
+	 * written via callbacks.
+	 */
+	bt_uuid16_create(&uuid, GATT_CHARAC_TURN_OFF_WIFI);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP,
+					gap_device_wifi_turn_off_read_cb,
+					gap_device_wifi_turn_off_write_cb,
 					server);
 
 	gatt_db_service_set_active(service, true);
