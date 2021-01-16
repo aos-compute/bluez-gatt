@@ -2975,6 +2975,30 @@ int hci_le_set_scan_parameters(int dd, uint8_t type,
 	return 0;
 }
 
+le_set_advertising_data_cp ble_hci_params_for_set_adv_data(char * name)
+{
+	int name_len = strlen(name);
+
+	le_set_advertising_data_cp adv_data_cp;
+	memset(&adv_data_cp, 0, sizeof(adv_data_cp));
+
+	// Build simple advertisement data bundle according to:
+	// - ​"Core Specification Supplement (CSS) v5" 
+	// ( https://www.bluetooth.org/en-us/specification/adopted-specifications )
+
+	adv_data_cp.data[0] = 0x02; // Length.
+	adv_data_cp.data[1] = 0x01; // Flags field.
+	adv_data_cp.data[2] = 0x01; // LE Limited Discoverable Flag set
+
+	adv_data_cp.data[3] = name_len + 1; // Length.
+	adv_data_cp.data[4] = 0x09; // Name field.
+	memcpy(adv_data_cp.data + 5, name, name_len);
+
+	adv_data_cp.length = strlen(adv_data_cp.data);
+
+	return adv_data_cp;
+}
+
 int hci_le_set_advertise_enable(int dd, uint8_t enable, int to)
 {
 	struct hci_request rq;

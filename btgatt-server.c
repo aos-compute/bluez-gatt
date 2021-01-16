@@ -1553,6 +1553,18 @@ static void signal_cb(int signum, void *user_data)
 // }
 
 
+struct hci_request ble_hci_request(uint16_t ocf, int clen, void * status, void * cparam)
+{
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = ocf;
+	rq.cparam = cparam;
+	rq.clen = clen;
+	rq.rparam = status;
+	rq.rlen = 1;
+	return rq;
+}
 
 int run()
 {
@@ -1575,6 +1587,20 @@ int run()
 
 	int hciDeviceId = hci_get_route(NULL);
 	int hciSocket = hci_open_dev(hciDeviceId);
+	int status = 0; 
+
+	le_set_advertising_data_cp adv_data_cp = ble_hci_params_for_set_adv_data("Yezhik_1234");
+	
+	struct hci_request adv_data_rq = ble_hci_request(
+		OCF_LE_SET_ADVERTISING_DATA,
+		LE_SET_ADVERTISING_DATA_CP_SIZE, &status, &adv_data_cp);
+
+	int ret = hci_send_req(hciSocket, &adv_data_rq, 1000);
+	if ( ret < 0 ) {
+		//hci_close_dev(dev_id);
+		fprintf(stderr, "Failed to set advertising data.");
+		return 0;
+	}
 		
 	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
 	printf("advertise is enabled %d \n", res);
