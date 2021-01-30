@@ -28,6 +28,34 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
+
+
+#include <locale.h>
+#include <signal.h>
+#include <pwd.h>
+#include <getopt.h>
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <sys/signalfd.h>
+#include <time.h>
+#include <stdint.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <stdio.h>
+#include <errno.h>
+#include <libgen.h>
+#include <stdlib.h>
+#include <string.h>
+#include <error.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <assert.h>
+
 
 #include "lib/bluetooth.h"
 #include "lib/hci.h"
@@ -79,11 +107,13 @@
 
 static const char test_device_name[] = "Yezhik_1234";
 
-static const char test_wifi_name[] = "WIFI TEST NAME";
+static const char test_wifi_name[] = "WIFI_TEST_NAME";
 
 static const char test_wifi_password[] = "12345678";
 
 static bool verbose = false;
+
+static bool is_wifi_on = false;
 
 struct server {
 	int fd;
@@ -100,12 +130,16 @@ struct server {
 	uint8_t *wifi_password;
 	size_t wifi_password_len;
 
+	uint8_t *wifi_error;
+	size_t wifi_error_len;
+
 	uint16_t gatt_svc_chngd_handle;
 	bool svc_chngd_enabled;
 
 	uint16_t hr_handle;
 	uint16_t hr_msrmt_handle;
 	uint16_t hr_energy_expended;
+	uint16_t wifi_turned_off;
 	bool hr_visible;
 	bool hr_msrmt_enabled;
 	int hr_ee_count;
@@ -123,6 +157,12 @@ static void att_disconnect_cb(int err, void *user_data)
 	printf("Device disconnected: %s\n", strerror(err));
 
 	mainloop_quit();
+}
+
+
+static void conf_cb(void *user_data)
+{
+	PRLOG("Received confirmation\n");
 }
 
 static void att_debug_cb(const char *str, void *user_data)
@@ -363,18 +403,120 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 	}
 
 	char connect_to_wifi[100] = "sudo nmcli d wifi connect ";
-	char* SSID = server->wifi_name;
+	char* SSID = server->wifi_name; //"\"";
+	//strncat(SSID, server->wifi_name, server->wifi_len);
+	//strncat(SSID, "\"", 2);
 	const char* password_word = " password ";
 	char* PASS = server->wifi_password;
 
   	strncat(connect_to_wifi, SSID, server->wifi_len);
 	strncat(connect_to_wifi, password_word, 10);
 	strncat(connect_to_wifi, PASS, server->wifi_password_len);
-	strncat(connect_to_wifi, "\0", 1);
+	strncat(connect_to_wifi, " 2> ./bt_logs.txt ", 19);
 
 	PRLOG("%s", connect_to_wifi);
 	system("sudo nmcli device wifi list > /dev/null 2>&1");
+	system("umask 0; touch ./bt_logs.txt");
 	system(connect_to_wifi);
+
+	int c;
+	FILE *file;
+	file = fopen("./bt_logs.txt", "r");
+
+	char error_buf[1024];
+	memset(error_buf, 0, 1024);
+
+	int i = 0;
+	
+	if (file) 
+	{
+		printf("logs from bt_logs: ");
+		while ((c = getc(file)) != EOF)
+		{
+			error_buf[i++] = c;
+		}
+		printf("%s", error_buf);
+		fclose(file);
+		//system("rm bt_logs.txt");
+
+		if(!bt_gatt_server_send_notification(server->gatt,
+							server->wifi_turned_off,
+							error_buf,
+							1024))
+		{
+			printf("shit\n");
+		}
+
+		if(!bt_gatt_server_send_notification(server->gatt,
+							0x2941,
+							error_buf,
+							1024))
+		{
+			printf("shit2\n");
+		}
+
+		if(!bt_gatt_server_send_notification(server->gatt,
+					0x2902,
+					error_buf,
+					1024))
+		{
+			printf("shit3\n");
+		}
+
+		if(!bt_gatt_server_send_notification(server->gatt,
+			0x28ff,
+			error_buf,
+			1024))
+		{
+			printf("shit3\n");
+		}
+
+		if(!bt_gatt_server_send_indication(server->gatt, 0x2A05,
+							error_buf, 1024,
+							conf_cb, NULL, NULL))
+		printf("Failed to initiate indication\n");
+	}
+
+
+
+	///////////
+
+	len = i;
+	offset = 0;
+
+	if (!(offset + len)) {
+		free(server->wifi_error);
+		server->wifi_error = NULL;
+		server->wifi_error_len = 0;
+		goto done;
+	}
+
+	/* Implement this as a variable length attribute value. */
+	if (offset > server->wifi_error_len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	if (offset + len != server->wifi_error_len) {
+		uint8_t *name;
+
+		name = realloc(server->wifi_error, offset + len);
+		if (!name) {
+			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+			goto done;
+		}
+
+		server->wifi_error = name;
+		server->wifi_error_len = offset + len;
+	}
+
+	if (error_buf)
+	{
+		strncpy(server->wifi_error, error_buf, len);
+		server->wifi_error_len = len;
+	}
+
+	//get error and notify
 
 done:
 	PRLOG("done");
@@ -387,6 +529,25 @@ static void gap_device_wifi_turn_off_read_cb(struct gatt_db_attribute *attrib,
 					uint8_t opcode, struct bt_att *att,
 					void *user_data)
 {
+	struct server *server = user_data;
+	uint8_t error = 0;
+	size_t len = 0;
+	const uint8_t *value = NULL;
+
+	PRLOG("GAP WiFi Errors Read called\n");
+
+	len = server->wifi_error_len;
+
+	if (offset > len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	len -= offset;
+	value = len ? &server->wifi_error[offset] : NULL;
+
+done:
+	gatt_db_attribute_read_result(attrib, id, error, value, len);
 }
 
 static void gap_device_wifi_turn_off_write_cb(struct gatt_db_attribute *attrib,
@@ -632,10 +793,10 @@ static void populate_gap_service(struct server *server)
 					gap_device_name_write_cb,
 					server);
 
-	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
-	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
-					gap_device_name_ext_prop_read_cb,
-					NULL, server);
+	// bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
+	// gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
+	// 				gap_device_name_ext_prop_read_cb,
+	// 				NULL, server);
 
 	/*
 	 * Appearance characteristic. Reads and writes should obtain the value
@@ -694,14 +855,26 @@ static void populate_gap_service(struct server *server)
 	 * written via callbacks.
 	 */
 	bt_uuid16_create(&uuid, GATT_CHARAC_TURN_OFF_WIFI);
-	gatt_db_service_add_characteristic(service, &uuid,
+	tmp = gatt_db_service_add_characteristic(service, &uuid,
 					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
 					BT_GATT_CHRC_PROP_READ |
 					BT_GATT_CHRC_PROP_WRITE |
-					BT_GATT_CHRC_PROP_EXT_PROP,
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
 					gap_device_wifi_turn_off_read_cb,
 					gap_device_wifi_turn_off_write_cb,
 					server);
+
+	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_2);
+	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE |
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
+					gap_device_name_ext_prop_read_cb,
+					NULL, server);
+
+	server->wifi_turned_off = gatt_db_attribute_get_handle(tmp);
+
+	printf("handle = %#04x", server->wifi_turned_off);
 
 	gatt_db_service_set_active(service, true);
 }
@@ -1010,10 +1183,6 @@ static bool parse_args(char *str, int expected_argc,  char **argv, int *argc)
 	return true;
 }
 
-static void conf_cb(void *user_data)
-{
-	PRLOG("Received confirmation\n");
-}
 
 static void cmd_notify(struct server *server, char *cmd_str)
 {
@@ -1100,6 +1269,12 @@ static void cmd_notify(struct server *server, char *cmd_str)
 	} else if (!bt_gatt_server_send_notification(server->gatt, handle,
 								value, length))
 		printf("Failed to initiate notification\n");
+	else
+	{
+		printf("OK to initiate notification\n, %x, %d, %d", handle,
+								value, length);
+	}
+	
 
 done:
 	free(value);
@@ -1109,6 +1284,11 @@ static void heart_rate_usage(void)
 {
 	printf("Usage: heart-rate on|off\n");
 }
+
+
+static struct server *server;
+static uint8_t *value = NULL;
+
 
 static void cmd_heart_rate(struct server *server, char *cmd_str)
 {
@@ -1386,6 +1566,64 @@ failed:
 	free(line);
 }
 
+
+
+static void prompt_read_cb_wifi(int fd, uint32_t events, void *user_data)
+{
+	ssize_t read;
+	size_t len = 0;
+	char *line = NULL;
+	char *cmd = NULL, *args;
+	struct server *server = user_data;
+	int i;
+
+	printf("events = %d", events);
+
+	if (events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR | EPOLLIN)) {
+		printf("here %d", events);
+		mainloop_quit();
+		return;
+	}
+
+	read = getline(&line, &len, stdin);
+	if (read < 0)
+	{
+		printf("here bla", events);
+		return;
+	}
+
+	if (read <= 1) {
+		cmd_help(server, NULL);
+		print_prompt();
+		return;
+	}
+
+	line[read-1] = '\0';
+	args = line;
+
+	while ((cmd = strsep(&args, " \t")))
+		if (*cmd != '\0')
+			break;
+
+	if (!cmd)
+		goto failed;
+
+	for (i = 0; command[i].cmd; i++) {
+		if (strcmp(command[i].cmd, cmd) == 0)
+			break;
+	}
+
+	if (command[i].cmd)
+		command[i].func(server, args);
+	else
+		fprintf(stderr, "Unknown command: %s\n", line);
+
+failed:
+	print_prompt();
+
+	free(line);
+}
+
 static void signal_cb(int signum, void *user_data)
 {
 	switch (signum) {
@@ -1397,161 +1635,6 @@ static void signal_cb(int signum, void *user_data)
 		break;
 	}
 }
-
-// int main(int argc, char *argv[])
-// {
-// 	int opt;
-// 	bdaddr_t src_addr;
-// 	int dev_id = -1;
-// 	int fd;
-// 	int sec = BT_SECURITY_LOW;
-// 	uint8_t src_type = BDADDR_LE_PUBLIC;
-// 	uint16_t mtu = 0;
-// 	sigset_t mask;
-// 	bool hr_visible = false;
-// 	struct server *server;
-
-// 	while ((opt = getopt_long(argc, argv, "+hvrs:t:m:i:",
-// 						main_options, NULL)) != -1) {
-// 		switch (opt) {
-// 		case 'h':
-// 			usage();
-// 			return EXIT_SUCCESS;
-// 		case 'v':
-// 			verbose = true;
-// 			break;
-// 		case 'r':
-// 			hr_visible = true;
-// 			break;
-// 		case 's':
-// 			if (strcmp(optarg, "low") == 0)
-// 				sec = BT_SECURITY_LOW;
-// 			else if (strcmp(optarg, "medium") == 0)
-// 				sec = BT_SECURITY_MEDIUM;
-// 			else if (strcmp(optarg, "high") == 0)
-// 				sec = BT_SECURITY_HIGH;
-// 			else {
-// 				fprintf(stderr, "Invalid security level\n");
-// 				return EXIT_FAILURE;
-// 			}
-// 			break;
-// 		case 't':
-// 			if (strcmp(optarg, "random") == 0)
-// 				src_type = BDADDR_LE_RANDOM;
-// 			else if (strcmp(optarg, "public") == 0)
-// 				src_type = BDADDR_LE_PUBLIC;
-// 			else {
-// 				fprintf(stderr,
-// 					"Allowed types: random, public\n");
-// 				return EXIT_FAILURE;
-// 			}
-// 			break;
-// 		case 'm': {
-// 			int arg;
-
-// 			arg = atoi(optarg);
-// 			if (arg <= 0) {
-// 				fprintf(stderr, "Invalid MTU: %d\n", arg);
-// 				return EXIT_FAILURE;
-// 			}
-
-// 			if (arg > UINT16_MAX) {
-// 				fprintf(stderr, "MTU too large: %d\n", arg);
-// 				return EXIT_FAILURE;
-// 			}
-
-// 			mtu = (uint16_t) arg;
-// 			break;
-// 		}
-// 		case 'i':
-// 			dev_id = hci_devid(optarg);
-// 			if (dev_id < 0) {
-// 				perror("Invalid adapter");
-// 				return EXIT_FAILURE;
-// 			}
-
-// 			break;
-// 		default:
-// 			fprintf(stderr, "Invalid option: %c\n", opt);
-// 			return EXIT_FAILURE;
-// 		}
-// 	}
-
-// 	// NMClient *client;
-
-// 	// client = nm_client_new();
-// 	// if (client)
-// 	// 	g_print ("NetworkManager version: %s\n", nm_client_get_version (client));
-
-
-// 	argc -= optind;
-// 	argv -= optind;
-// 	optind = 0;
-
-// 	if (argc) {
-// 		usage();
-// 		return EXIT_SUCCESS;
-// 	}
-
-// 	if (dev_id == -1)
-// 		bacpy(&src_addr, BDADDR_ANY);
-// 	else if (hci_devba(dev_id, &src_addr) < 0) {
-// 		perror("Adapter not available");
-// 		return EXIT_FAILURE;
-// 	}
-
-// 	int hciDeviceId = hci_get_route(NULL);
-// 	int hciSocket = hci_open_dev(hciDeviceId);
-		
-// 	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
-// 	printf("advertise is enabled %d \n", res);
-
-// 	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
-// 	if (fd < 0) {
-// 		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
-// 		return EXIT_FAILURE;
-// 	}
-
-// 	mainloop_init();
-
-
-
-// 	server = server_create(fd, mtu, hr_visible);
-// 	if (!server) {
-// 		close(fd);
-// 		return EXIT_FAILURE;
-// 	}
-
-// 	if (mainloop_add_fd(fileno(stdin),
-// 				EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
-// 				prompt_read_cb, server, NULL) < 0) {
-// 		fprintf(stderr, "Failed to initialize console\n");
-// 		server_destroy(server);
-
-// 		return EXIT_FAILURE;
-// 	}
-
-// 	printf("Running GATT server\n");
-
-// 	sigemptyset(&mask);
-// 	sigaddset(&mask, SIGINT);
-// 	sigaddset(&mask, SIGTERM);
-
-// 	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
-
-// 	print_prompt();
-
-
-
-// 	mainloop_run();
-
-// 	printf("\n\nShutting down...\n");
-
-// 	server_destroy(server);
-
-// 	return EXIT_SUCCESS;
-// }
-
 
 struct hci_request ble_hci_request(uint16_t ocf, int clen, void * status, void * cparam)
 {
@@ -1566,83 +1649,260 @@ struct hci_request ble_hci_request(uint16_t ocf, int clen, void * status, void *
 	return rq;
 }
 
+static void* send_wifi_error_notification(void* arg )
+{
+	printf("1 initiate notification\n");
+
+    int sockfd;
+    struct sockaddr_in sockserver;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+            perror("cannot create socket\n");
+    }
+
+    memset(&sockserver, 0, sizeof(sockserver));
+    sockserver.sin_family = AF_INET;
+    sockserver.sin_port = htons(53);
+    inet_pton(AF_INET, "8.8.8.8", &(sockserver.sin_addr));
+
+    //if(bind(sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
+    //        perror("bind failed\n");
+    //}
+
+
+	int yes = 1;
+
+	int tcp_keepcnt = 2;
+	int tcp_keepidle = 5;
+	int tcp_keepintvl = 5;
+
+	setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPCNT, &tcp_keepcnt, sizeof(tcp_keepcnt));
+	setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &tcp_keepidle, sizeof(tcp_keepidle));
+	setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &tcp_keepintvl, sizeof(tcp_keepintvl));
+
+	int retval = setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE,
+                &yes, sizeof(yes));
+    if (retval == -1) {
+        printf("ERROR setsockopt\n");
+    }
+
+	// retval = bind(sockfd, (struct sockaddr *) &sockserver,
+    //         sizeof(sockserver));
+    // if (retval == -1) {
+	// 	printf("ERROR setsockopt 2\n");
+    // }
+
+	while (mainloop_add_fd(sockfd,   EPOLLIN |
+    //EPOLLPRI |
+    EPOLLOUT |
+   // EPOLLRDNORM | 
+   // EPOLLRDBAND |
+   // EPOLLWRNORM |
+   // EPOLLWRBAND |
+   // EPOLLMSG |
+    EPOLLERR |
+    EPOLLHUP |
+  	EPOLLRDHUP | 
+   // EPOLLEXCLUSIVE | 
+   // EPOLLWAKEUP |
+   // EPOLLONESHOT |
+    EPOLLET, prompt_read_cb_wifi, server, NULL) < 0) {
+		printf("Failed to add listen socket for wifi\n");
+		sleep(5);
+		close(sockfd);
+
+		if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+					perror("cannot create socket\n");
+			}
+
+		setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPCNT, &tcp_keepcnt, sizeof(tcp_keepcnt));
+		setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &tcp_keepidle, sizeof(tcp_keepidle));
+		setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &tcp_keepintvl, sizeof(tcp_keepintvl));
+
+		int retval = setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE,
+					&yes, sizeof(yes));
+		if (retval == -1) {
+			printf("ERROR setsockopt\n");
+		}
+		//netcfg_state = 0;
+		//return NULL;
+	}
+
+	// while(true)
+	// {
+	// 	if (!bt_gatt_server_send_notification(server->gatt, server->wifi_turned_off, 5, 4))
+	// 	{
+	// 		printf("Failed to initiate notification\n");
+	// 	}
+	// 	else
+	// 	{
+	// 		printf("OK to initiate notification\n");
+	// 	}
+
+		//if( sendto(sockfd, "ping", 4, EPOLLERR, (struct sockaddr *) &sockserver, sizeof(sockserver)) < 0)
+		//{
+		//	printf("ERROR setsockopt 3\n");
+			//write(sockfd, EPOLLERR, sizeof(EPOLLERR));
+			//break;
+			// if (!bt_gatt_server_send_notification(server->gatt, server->wifi_turned_off, 5, 1))
+			// {
+			// 	printf("Failed to initiate notification\n");
+			// }
+			// else
+			// {
+			// 	printf("OK to initiate notification\n");
+			// }
+		//}
+	//}	
+}
+
+void reverse_mac_address(char *data, size_t n)
+{
+    size_t i;
+
+    for (i=0; i < n/2; i+=3) {
+        int tmp = data[i];
+		int tmp2 = data[i+1];
+        data[i] = data[n - 1 - i - 1];
+		data[i+1] = data[n - 1 - i];
+        data[n - 1 - i - 1] = tmp;
+		data[n - 1 - i] = tmp2;
+    }
+}
+
 int run()
 {
-	bdaddr_t src_addr;
-	int dev_id = -1;
-	int fd;
-	int sec = BT_SECURITY_LOW;
-	uint8_t src_type = BDADDR_LE_PUBLIC;
-	uint16_t mtu = 0;
-	sigset_t mask;
-	bool hr_visible = false;
-	struct server *server;
 
-	if (dev_id == -1)
-		bacpy(&src_addr, BDADDR_ANY);
-	else if (hci_devba(dev_id, &src_addr) < 0) {
-		perror("Adapter not available");
-		return EXIT_FAILURE;
-	}
+	while(true)
+	{
+		bdaddr_t src_addr;
+		int dev_id = 0;
+		int fd;
+		int sec = BT_SECURITY_LOW;
+		uint8_t src_type = BDADDR_LE_PUBLIC;
+		uint16_t mtu = 0;
+		sigset_t mask;
+		bool hr_visible = false;
 
-	int hciDeviceId = hci_get_route(NULL);
-	int hciSocket = hci_open_dev(hciDeviceId);
-	int status = 0; 
+		if (dev_id == -1)
+			bacpy(&src_addr, BDADDR_ANY);
+		else if (hci_devba(dev_id, &src_addr) < 0) {
+			perror("Adapter not available");
+			return EXIT_FAILURE;
+		}
 
-	le_set_advertising_data_cp adv_data_cp = ble_hci_params_for_set_adv_data("Yezhik_1234");
-	
-	struct hci_request adv_data_rq = ble_hci_request(
-		OCF_LE_SET_ADVERTISING_DATA,
-		LE_SET_ADVERTISING_DATA_CP_SIZE, &status, &adv_data_cp);
+		int hciDeviceId = hci_get_route(NULL);
+		int hciSocket = hci_open_dev(hciDeviceId);
+		int status = 0; 
 
-	int ret = hci_send_req(hciSocket, &adv_data_rq, 1000);
-	if ( ret < 0 ) {
-		//hci_close_dev(dev_id);
-		fprintf(stderr, "Failed to set advertising data.");
-		return 0;
-	}
+		char* mac_bt;
+		mac_bt = batostr(&src_addr);
+
+		reverse_mac_address(mac_bt, 17);
+
+		printf("robot device mac address = %s \n", mac_bt);
+
+
+		le_set_advertising_data_cp adv_data_cp = ble_hci_params_for_set_adv_data(mac_bt);
 		
-	int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
-	printf("advertise is enabled %d \n", res);
+		struct hci_request adv_data_rq = ble_hci_request(
+			OCF_LE_SET_ADVERTISING_DATA,
+			LE_SET_ADVERTISING_DATA_CP_SIZE, &status, &adv_data_cp);
 
-	fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
-	if (fd < 0) {
-		fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
-		return EXIT_FAILURE;
-	}
+		int ret = hci_send_req(hciSocket, &adv_data_rq, 1000);
+		if ( ret < 0 ) {
+			//hci_close_dev(dev_id);
+			fprintf(stderr, "Failed to set advertising data.");
+			return 0;
+		}
+			
+		int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
+		printf("advertise is enabled %d \n", res);
 
-	mainloop_init();
 
-	server = server_create(fd, mtu, hr_visible);
-	if (!server) {
-		close(fd);
-		return EXIT_FAILURE;
-	}
+		fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
+		if (fd < 0) {
+			fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
+			return EXIT_FAILURE;
+		}
 
-	if (mainloop_add_fd(fileno(stdin),
-				EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
-				prompt_read_cb, server, NULL) < 0) {
-		fprintf(stderr, "Failed to initialize console\n");
+		mainloop_init();
+
+		server = server_create(fd, mtu, hr_visible);
+		if (!server) {
+			close(fd);
+			return EXIT_FAILURE;
+		}
+
+		if (mainloop_add_fd(fileno(stdin),
+					EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
+					prompt_read_cb, server, NULL) < 0) {
+			fprintf(stderr, "Failed to initialize console\n");
+			server_destroy(server);
+
+			return EXIT_FAILURE;
+		}
+
+		//int netcfg_state = 1;
+		//int sfd = socket(AF_INET, SOCK_STREAM, 0);
+
+		//int err;
+		//pthread_t tid;
+
+		//pthread_attr_t attr;
+		//size_t stack_size = 16 * 1024;
+		//int s = pthread_attr_init(&attr);
+
+		//s = pthread_attr_setstacksize(&attr, stack_size);
+		//if (s != 0)
+		//	printf("\n ZHOPA created successfully\n");//handle_error_en(s, "pthread_attr_setstacksize");
+
+		// err = pthread_create(&tid, NULL, &send_wifi_error_notification, NULL);
+		// if (err != 0)
+		// 	printf("\ncan't create thread :[%s]", strerror(err));
+		// else
+		// 	printf("\n Thread created successfully\n");
+
+		// // void* resThread;
+
+		// printf("\n Thread created successfully 2\n");
+		
+		// int s = pthread_detach(tid);
+
+		// printf("\n Thread created successfully 3\n");
+
+		/////////////
+
+
+		printf("Running GATT server\n");
+
+		// bt_gatt_server_send_notification(server->gatt,
+		// 					 server->wifi_turned_off,
+		// 					 0,
+		// 					 0);
+
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGINT);
+		sigaddset(&mask, SIGTERM);
+
+		mainloop_set_signal(&mask, signal_cb, NULL, NULL);
+
+		print_prompt();
+
+
+
+		mainloop_run();
+
 		server_destroy(server);
-
-		return EXIT_FAILURE;
 	}
 
-	printf("Running GATT server\n");
+	//printf("\n Thread created successfully 4\n");
 
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGINT);
-	sigaddset(&mask, SIGTERM);
 
-	mainloop_set_signal(&mask, signal_cb, NULL, NULL);
 
-	print_prompt();
+	//printf("\n\nShutting down...\n");
 
-	mainloop_run();
-
-	printf("\n\nShutting down...\n");
-
-	server_destroy(server);
+	//
 
 	return EXIT_SUCCESS;
 }

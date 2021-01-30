@@ -152,6 +152,8 @@ int mainloop_run(void)
 		for (n = 0; n < nfds; n++) {
 			struct mainloop_data *data = events[n].data.ptr;
 
+			
+
 			data->callback(data->fd, events[n].events,
 							data->user_data);
 		}

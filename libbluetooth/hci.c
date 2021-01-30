@@ -970,6 +970,7 @@ int hci_devba(int dev_id, bdaddr_t *bdaddr)
 		return -1;
 	}
 
+	char* str[17];
 	bacpy(bdaddr, &di.bdaddr);
 
 	return 0;

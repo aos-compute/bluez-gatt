@@ -26,8 +26,8 @@ file(GLOB SRC
             "includes/lib/*.h"
     )
 
-set(CMAKE_C_FLAGS "-no-pie -Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
-
+set(CMAKE_C_FLAGS " -pthread -no-pie -Wno-int-conversion -Wno-unused-but-set-parameter -Wno-unused-variable -Wno-unused-parameter -Wno-format -Wno-unused-const-variable -Wno-unused-result -Wno-pointer-sign")
+# -Wno-incompatible-pointer-types
 SET(DBUILD_SHARED_LIBS ON)
 
 # btgatt-server
