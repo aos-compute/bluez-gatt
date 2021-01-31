@@ -76,6 +76,7 @@
 //#include <libnm-glib/libnm_glib.h>
 //#include <libnm-glib/nm-client.h>
 #include "btgatt-server.h"
+#include "udpclient.h"
 
 #define UUID_GAP			0x1800
 #define UUID_GATT			0x1801
@@ -115,6 +116,8 @@ static bool verbose = false;
 
 static bool is_wifi_on = false;
 
+static int piloting_udp_socket = -1;
+
 struct server {
 	int fd;
 	struct bt_att *att;
@@ -132,6 +135,9 @@ struct server {
 
 	uint8_t *wifi_error;
 	size_t wifi_error_len;
+
+	uint8_t *piloting_message;
+	size_t piloting_message_len;
 
 	uint16_t gatt_svc_chngd_handle;
 	bool svc_chngd_enabled;
@@ -253,6 +259,32 @@ static void gap_device_wifi_password_read_cb(struct gatt_db_attribute *attrib,
 
 	len -= offset;
 	value = len ? &server->wifi_password[offset] : NULL;
+
+done:
+	gatt_db_attribute_read_result(attrib, id, error, value, len);
+}
+
+static void gap_device_piloting_message_read_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+	size_t len = 0;
+	const uint8_t *value = NULL;
+
+	PRLOG("GAP Piloting message read called\n");
+
+	len = server->piloting_message_len;
+
+	if (offset > len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	len -= offset;
+	value = len ? &server->piloting_message[offset] : NULL;
 
 done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
@@ -523,6 +555,62 @@ done:
 	gatt_db_attribute_write_result(attrib, id, error);
 }
 
+static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+
+	PRLOG("GAP piloting_message Write called\n");
+
+	PRLOG("%s %d %d", value, offset, len);
+
+	/* If the value is being completely truncated, clean up and return */
+	if (!(offset + len)) {
+		free(server->piloting_message);
+		server->piloting_message = NULL;
+		server->piloting_message_len = 0;
+		goto done;
+	}
+
+	/* Implement this as a variable length attribute value. */
+	if (offset > server->piloting_message_len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	if (offset + len != server->piloting_message_len) {
+		uint8_t *name;
+
+		name = realloc(server->piloting_message, offset + len);
+		if (!name) {
+			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+			goto done;
+		}
+
+		server->piloting_message = name;
+		server->piloting_message_len = offset + len;
+	}
+
+	if (value)
+	{
+		strncpy(server->piloting_message, value, len);
+		server->piloting_message_len = len;
+	}
+
+	//remove saving message into server structure?
+	//todo udpclient part
+
+	send_udp_msg(piloting_udp_socket, server->piloting_message);
+
+done:
+	PRLOG("done");
+	gatt_db_attribute_write_result(attrib, id, error);
+}
+
 
 static void gap_device_wifi_turn_off_read_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
@@ -778,7 +866,7 @@ static void populate_gap_service(struct server *server)
 
 	/* Add the GAP service */
 	bt_uuid16_create(&uuid, UUID_GAP);
-	service = gatt_db_add_service(server->db, &uuid, true, 12);
+	service = gatt_db_add_service(server->db, &uuid, true, 13);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -862,6 +950,16 @@ static void populate_gap_service(struct server *server)
 					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
 					gap_device_wifi_turn_off_read_cb,
 					gap_device_wifi_turn_off_write_cb,
+					server);
+
+	bt_uuid16_create(&uuid, GATT_CHARAC_PILOTING_MESSAGE);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
+					gap_device_piloting_message_read_cb,
+					gap_device_piloting_message_write_cb,
 					server);
 
 	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_2);
@@ -1889,11 +1987,13 @@ int run()
 
 		print_prompt();
 
-
+		while(piloting_udp_socket = create_udp_socket() == -1);
 
 		mainloop_run();
 
 		server_destroy(server);
+
+		destroy_udp_socket(piloting_udp_socket);
 	}
 
 	//printf("\n Thread created successfully 4\n");
