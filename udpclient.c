@@ -10,7 +10,7 @@
 #include <netinet/in.h> 
 #include "udpclient.h"
 
-int create_udp_socket()
+int send_udp_msg(const char* msg)
 {
     int sockfd;
     // Creating socket file descriptor 
@@ -18,18 +18,56 @@ int create_udp_socket()
         perror("socket creation failed"); 
         return -1;
     } 
-    return sockfd;
-}
 
-void destroy_udp_socket(int sockfd)
-{
-    close(sockfd);
-}
-
-int send_udp_msg(int sockfd, const char* msg)
-{
     char buffer[MAXLINE]; 
-    //char *hello = "Hello from client"; 
+    char *hello = "{ \
+        \"linearAccelAxis\": { \
+            \"value\": 0, \
+            \"min\": 0, \
+            \"max\": 5, \
+            \"center\": 0, \
+            \"deadband\": 0 \
+        }, \
+        \"angularAccelAxis\": { \ 
+            \"value\": 0, \
+            \"min\": 0, \
+            \"max\": 3, \ 
+            \"center\": 0, \
+            \"deadband\": 0 \
+        }, \
+        \"deadManSwitch\": { \
+            \"active\": true, \
+            \"enabled\": false \
+        }, \
+        \"taskCompleteButton\": false, \
+        \"incrementSubtaskButton\": false, \
+        \"decrementSubTaskButton\": false, \
+        \"requestNewTaskButton\": false, \
+        \"axes\": [ \
+            0, \
+            0, \
+            0, \
+            0 \
+        ], \
+        \"buttons\": [ \
+            { \
+            \"pressed\": false, \
+            \"touched\": false \
+            }, \
+            { \
+            \"pressed\": false, \
+            \"touched\": false \
+            }, \
+            { \
+            \"pressed\": false, \
+            \"touched\": false \
+            }, \
+            { \
+            \"pressed\": false, \
+            \"touched\": false \
+            } \
+        ] \
+        }";
     struct sockaddr_in     servaddr; 
   
     memset(&servaddr, 0, sizeof(servaddr)); 
@@ -53,6 +91,8 @@ int send_udp_msg(int sockfd, const char* msg)
                 &len); 
     buffer[n] = '\0'; 
     printf("UDP Server : %s\n", buffer); 
+
+    close(sockfd);
   
     return 0; 
 } 

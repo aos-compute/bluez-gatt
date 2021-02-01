@@ -136,9 +136,6 @@ struct server {
 	uint8_t *wifi_error;
 	size_t wifi_error_len;
 
-	uint8_t *piloting_message;
-	size_t piloting_message_len;
-
 	uint16_t gatt_svc_chngd_handle;
 	bool svc_chngd_enabled;
 
@@ -275,16 +272,6 @@ static void gap_device_piloting_message_read_cb(struct gatt_db_attribute *attrib
 	const uint8_t *value = NULL;
 
 	PRLOG("GAP Piloting message read called\n");
-
-	len = server->piloting_message_len;
-
-	if (offset > len) {
-		error = BT_ATT_ERROR_INVALID_OFFSET;
-		goto done;
-	}
-
-	len -= offset;
-	value = len ? &server->piloting_message[offset] : NULL;
 
 done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
@@ -568,43 +555,7 @@ static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attri
 
 	PRLOG("%s %d %d", value, offset, len);
 
-	/* If the value is being completely truncated, clean up and return */
-	if (!(offset + len)) {
-		free(server->piloting_message);
-		server->piloting_message = NULL;
-		server->piloting_message_len = 0;
-		goto done;
-	}
-
-	/* Implement this as a variable length attribute value. */
-	if (offset > server->piloting_message_len) {
-		error = BT_ATT_ERROR_INVALID_OFFSET;
-		goto done;
-	}
-
-	if (offset + len != server->piloting_message_len) {
-		uint8_t *name;
-
-		name = realloc(server->piloting_message, offset + len);
-		if (!name) {
-			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
-			goto done;
-		}
-
-		server->piloting_message = name;
-		server->piloting_message_len = offset + len;
-	}
-
-	if (value)
-	{
-		strncpy(server->piloting_message, value, len);
-		server->piloting_message_len = len;
-	}
-
-	//remove saving message into server structure?
-	//todo udpclient part
-
-	send_udp_msg(piloting_udp_socket, server->piloting_message);
+	send_udp_msg(value);
 
 done:
 	PRLOG("done");
@@ -1987,13 +1938,9 @@ int run()
 
 		print_prompt();
 
-		while(piloting_udp_socket = create_udp_socket() == -1);
-
 		mainloop_run();
 
 		server_destroy(server);
-
-		destroy_udp_socket(piloting_udp_socket);
 	}
 
 	//printf("\n Thread created successfully 4\n");
