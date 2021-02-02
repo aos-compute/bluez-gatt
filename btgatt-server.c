@@ -1849,7 +1849,11 @@ int run()
 
 		reverse_mac_address(mac_bt, 17);
 
+		sleep(2);
+
 		printf("robot device mac address = %s \n", mac_bt);
+
+		sleep(1);
 
 
 		le_set_advertising_data_cp adv_data_cp = ble_hci_params_for_set_adv_data(mac_bt);
@@ -1858,12 +1862,16 @@ int run()
 			OCF_LE_SET_ADVERTISING_DATA,
 			LE_SET_ADVERTISING_DATA_CP_SIZE, &status, &adv_data_cp);
 
+		sleep(1);
+
 		int ret = hci_send_req(hciSocket, &adv_data_rq, 1000);
 		if ( ret < 0 ) {
 			//hci_close_dev(dev_id);
-			fprintf(stderr, "Failed to set advertising data.");
-			return 0;
+			fprintf(stderr, "Failed to set advertising data. ret = %d, hciSocket = %d", ret, hciSocket);
+			//return 0;
 		}
+
+		sleep(1);
 			
 		int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
 		printf("advertise is enabled %d \n", res);
@@ -1872,7 +1880,7 @@ int run()
 		fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
 		if (fd < 0) {
 			fprintf(stderr, "Failed to accept L2CAP ATT connection\n");
-			return EXIT_FAILURE;
+			//return EXIT_FAILURE;
 		}
 
 		mainloop_init();
@@ -1880,7 +1888,7 @@ int run()
 		server = server_create(fd, mtu, hr_visible);
 		if (!server) {
 			close(fd);
-			return EXIT_FAILURE;
+			//return EXIT_FAILURE;
 		}
 
 		if (mainloop_add_fd(fileno(stdin),
@@ -1889,7 +1897,7 @@ int run()
 			fprintf(stderr, "Failed to initialize console\n");
 			server_destroy(server);
 
-			return EXIT_FAILURE;
+			//return EXIT_FAILURE;
 		}
 
 		//int netcfg_state = 1;
