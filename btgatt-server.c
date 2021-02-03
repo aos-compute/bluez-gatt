@@ -29,8 +29,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
-
-
 #include <locale.h>
 #include <signal.h>
 #include <pwd.h>
@@ -135,6 +133,9 @@ struct server {
 
 	uint8_t *wifi_error;
 	size_t wifi_error_len;
+
+	uint8_t *wifi_list;
+	size_t wifi_list_len;
 
 	uint16_t gatt_svc_chngd_handle;
 	bool svc_chngd_enabled;
@@ -542,6 +543,167 @@ done:
 	gatt_db_attribute_write_result(attrib, id, error);
 }
 
+
+
+static void gap_device_wifi_list_read_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+	size_t len = 0;
+	const uint8_t *value = NULL;
+
+	PRLOG("GAP WiFi List Read called\n");
+
+	len = server->wifi_list_len;
+
+	if (offset > len) {
+		error = BT_ATT_ERROR_INVALID_OFFSET;
+		goto done;
+	}
+
+	len -= offset;
+	value = len ? &server->wifi_list[offset] : NULL;
+
+
+
+done:
+	gatt_db_attribute_read_result(attrib, id, error, value, len);
+}
+
+static void gap_device_wifi_list_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	struct server *server = user_data;
+	uint8_t error = 0;
+
+	PRLOG("GAP WiFi List Write called\n");
+
+		//////////////////////////////////////////////////////////
+
+	system("umask 0; touch ./wifi_list.txt");
+	system("nmcli device wifi rescan");
+	sleep(10);
+	system("sudo nmcli --get-values ssid,signal device wifi list > ./wifi_list.txt ");
+
+	int c;
+	FILE *file;
+	file = fopen("./wifi_list.txt", "r");
+
+	char wifi_buf[2048];
+	memset(wifi_buf, 0, 2048);
+
+	int i = 0;
+	char json[2048] = "{";
+
+	int cnt = 0;
+	int json_cnt = 1;
+	
+	if (file) 
+	{
+		printf("logs from wifi_list: ");
+		while ((c = getc(file)) != EOF)
+		{
+			cnt++;
+			if(c == ':')
+			{
+				char ssid[100];
+				strncpy(ssid, wifi_buf, i);
+				ssid[i+1] = '\0';
+
+				strncat(json, "\"", 2);
+				json_cnt += 2;
+				strncat(json, ssid, i);
+				json_cnt += i;
+				strncat(json, "\"", 2);
+				json_cnt += 2;
+				strncat(json, ":", 1);
+				json_cnt += 1;
+
+				i = 0;
+			}
+			else if(c == '\n')
+			{
+				int result = 0;
+				int strSignal = 0;
+
+				char level[3];
+				strncpy(level, wifi_buf, i);
+				level[i] = '\0';
+
+				strSignal = atoi(level);
+
+				//printf("strSignal = %d, level = %s\n", strSignal, level);
+
+				if (strSignal >= 80)
+					result = 5;          //-30 - Maximum signal strength, you are probably standing right next to the access point.  
+				else if (strSignal >= 60)  //-50    #Anything down to this level can be considered excellent signal strength.    
+					result = 4;          //-60     #Good, reliable signal strength.     
+				else if (strSignal >= 40)
+					result = 3;          //-67     #Reliable signal strength.   The minimum for any service depending on a reliable connection and signal strength, such as voice over Wi-Fi and non-HD video streaming.
+				else if (strSignal >= 25)
+					result = 2;
+				else if (strSignal >= 10)
+					result = 1;          //-70     #Not a strong signal.    Light browsing and email.
+										//-80     #Unreliable signal strength, will not suffice for most services.     Connecting to the network.
+										//-90     #The chances of even connecting are very low at this level.
+				i = 0;
+
+				char res[3];
+				sprintf(res, "%d", result);
+
+				strncat(json, res, 1);
+				json_cnt += 1;
+				strncat(json, ",", 1);		
+				json_cnt += 1;
+			}
+			else
+			{
+				wifi_buf[i++] = c;
+			}
+		}
+
+		json[strlen(json) - 1] = '}';
+		printf("json = %s\n", json);
+		fclose(file);
+		//system("rm ./wifi_list.txt");
+	}
+
+	len = strlen(json);
+	value = json;
+	offset = 0;
+
+	if (offset + len != server->wifi_list_len) {
+		uint8_t *name;
+
+		name = realloc(server->wifi_list, offset + len);
+		if (!name) {
+			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+			goto done;
+		}
+
+		server->wifi_list = name;
+		server->wifi_list_len = offset + len;
+	}
+
+	if (value)
+	{
+		strncpy(server->wifi_list, value, len);
+		server->wifi_list_len = len;
+	}
+
+	//PRLOG("%s %d %d", value, offset, len);
+
+done:
+	PRLOG("done");
+	gatt_db_attribute_write_result(attrib, id, error);
+}
+
 static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					const uint8_t *value, size_t len,
@@ -817,7 +979,7 @@ static void populate_gap_service(struct server *server)
 
 	/* Add the GAP service */
 	bt_uuid16_create(&uuid, UUID_GAP);
-	service = gatt_db_add_service(server->db, &uuid, true, 13);
+	service = gatt_db_add_service(server->db, &uuid, true, 14);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -886,6 +1048,20 @@ static void populate_gap_service(struct server *server)
 					BT_GATT_CHRC_PROP_EXT_PROP,
 					gap_device_wifi_password_read_cb,
 					gap_device_wifi_password_write_cb,
+					server);
+
+	/*
+	 * WiFi List characteristic. Make the value dynamically read and
+	 * written via callbacks.
+	 */
+	bt_uuid16_create(&uuid, GATT_CHARAC_WIFI_LIST);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP,
+					gap_device_wifi_list_read_cb,
+					gap_device_wifi_list_write_cb,
 					server);
 
 
@@ -1849,12 +2025,7 @@ int run()
 
 		reverse_mac_address(mac_bt, 17);
 
-		sleep(2);
-
 		printf("robot device mac address = %s \n", mac_bt);
-
-		sleep(1);
-
 
 		le_set_advertising_data_cp adv_data_cp = ble_hci_params_for_set_adv_data(mac_bt);
 		
@@ -1862,20 +2033,15 @@ int run()
 			OCF_LE_SET_ADVERTISING_DATA,
 			LE_SET_ADVERTISING_DATA_CP_SIZE, &status, &adv_data_cp);
 
-		sleep(1);
-
 		int ret = hci_send_req(hciSocket, &adv_data_rq, 1000);
 		if ( ret < 0 ) {
 			//hci_close_dev(dev_id);
 			fprintf(stderr, "Failed to set advertising data. ret = %d, hciSocket = %d", ret, hciSocket);
 			//return 0;
 		}
-
-		sleep(1);
 			
 		int res = hci_le_set_advertise_enable(hciSocket, 1, 1000);
 		printf("advertise is enabled %d \n", res);
-
 
 		fd = l2cap_le_att_listen_and_accept(&src_addr, sec, src_type);
 		if (fd < 0) {
