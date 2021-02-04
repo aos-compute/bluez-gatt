@@ -95,7 +95,6 @@ int send_udp_msg(const char* linear, const char* angular, const char* taskComple
     strncat(msg, json3, strlen(json3) );
     strncat(msg, taskCompleteButton, strlen(taskCompleteButton) );
     strncat(msg, json4, strlen(json4) );
-    msg[strlen(msg) - 1] = '\0';
  
     printf("UDP msg is: %s", msg);
       
