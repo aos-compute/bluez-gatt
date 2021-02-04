@@ -10,7 +10,7 @@
 #include <netinet/in.h> 
 #include "udpclient.h"
 
-int send_udp_msg(const char* msg)
+int send_udp_msg(const char* linear, const char* angular, const char* taskCompleteButton)
 {
     int sockfd;
     // Creating socket file descriptor 
@@ -20,18 +20,22 @@ int send_udp_msg(const char* msg)
     } 
 
     char buffer[MAXLINE]; 
-    char *hello = "{ \
+    const char *json1 = "{ \
         \"linearAccelAxis\": { \
-            \"value\": 0, \
+            \"value\":";
+
+    const char* json2 = ", \
             \"min\": 0, \
             \"max\": 5, \
             \"center\": 0, \
             \"deadband\": 0 \
         }, \
-        \"angularAccelAxis\": { \ 
-            \"value\": 0, \
+        \"angularAccelAxis\": { \
+            \"value\": ";
+
+    const char* json3 = ", \
             \"min\": 0, \
-            \"max\": 3, \ 
+            \"max\": 3, \
             \"center\": 0, \
             \"deadband\": 0 \
         }, \
@@ -39,7 +43,9 @@ int send_udp_msg(const char* msg)
             \"active\": true, \
             \"enabled\": false \
         }, \
-        \"taskCompleteButton\": false, \
+        \"taskCompleteButton\": ";
+
+    const char* json4 = ", \
         \"incrementSubtaskButton\": false, \
         \"decrementSubTaskButton\": false, \
         \"requestNewTaskButton\": false, \
@@ -79,6 +85,18 @@ int send_udp_msg(const char* msg)
       
     int n, len; 
 
+    char* msg = (char*) malloc(strlen(json1) + strlen(json2) + strlen(json3) + strlen(json4) +
+     strlen(angular) + strlen(linear) + strlen(taskCompleteButton) + 1);
+
+    strncat(msg, json1, strlen(json1) );
+    strncat(msg, linear, strlen(linear) );
+    strncat(msg, json2, strlen(json2) );
+    strncat(msg, angular, strlen(angular) );
+    strncat(msg, json3, strlen(json3) );
+    strncat(msg, taskCompleteButton, strlen(taskCompleteButton) );
+    strncat(msg, json4, strlen(json4) );
+    msg[strlen(msg) - 1] = '\0';
+ 
     printf("UDP msg is: %s", msg);
       
     sendto(sockfd, msg, strlen(msg), 

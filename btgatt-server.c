@@ -715,9 +715,67 @@ static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attri
 
 	PRLOG("GAP piloting_message Write called\n");
 
-	PRLOG("%s %d %d", value, offset, len);
+	PRLOG("%s %d %d\n", value, offset, len);
 
-	send_udp_msg(value);
+	//parse linear,angular,taskCompleteButton
+
+	char* linear = 0;
+	char* angular = 0;
+	char* taskCompleteButton = 0;
+
+	int cnt = 0;
+
+	for(int i = 0; i < len; i++)
+	{
+		cnt++;
+		if(value[i] == ',')
+		{
+			if(!linear)
+			{
+				linear = (char*) malloc(cnt + 1);
+				strncpy(linear, value, cnt-1);
+				linear[cnt] = '\0';
+				printf("linear = %s", linear);
+				cnt = 0;
+			}
+			else if(!angular)
+			{
+				angular = (char*) malloc(cnt + 1);
+				strncpy(angular, value+strlen(linear) + 1, cnt-1);
+				angular[cnt] = '\0';
+				printf("angular = %s", angular);
+				cnt = 0;
+			}
+		}
+	}
+
+	if(!taskCompleteButton)
+	{
+		taskCompleteButton = (char*) malloc(2);
+		strncpy(taskCompleteButton, value+len-1, 1);
+		taskCompleteButton[1] = '\0';
+
+		if(strcmp(taskCompleteButton, "1") == 0)
+		{
+			taskCompleteButton = (char *) realloc (taskCompleteButton,5);
+			strncpy(taskCompleteButton, "true", 4);
+			taskCompleteButton[4] = '\0';
+		}
+		else
+		{
+			taskCompleteButton = (char *) realloc (taskCompleteButton,6);
+			strncpy(taskCompleteButton, "false", 5);
+			taskCompleteButton[5] = '\0';
+		}
+	}
+
+	printf("taskCompleteButton = %s", taskCompleteButton);
+
+	send_udp_msg(linear, angular, taskCompleteButton);
+
+	free(taskCompleteButton);
+	free(angular);
+	free(linear);
 
 done:
 	PRLOG("done");
