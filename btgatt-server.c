@@ -979,7 +979,7 @@ static void populate_gap_service(struct server *server)
 
 	/* Add the GAP service */
 	bt_uuid16_create(&uuid, UUID_GAP);
-	service = gatt_db_add_service(server->db, &uuid, true, 14);
+	service = gatt_db_add_service(server->db, &uuid, true, 17);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -1050,6 +1050,15 @@ static void populate_gap_service(struct server *server)
 					gap_device_wifi_password_write_cb,
 					server);
 
+	bt_uuid16_create(&uuid, GATT_CHARAC_PILOTING_MESSAGE);
+	gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE,
+					gap_device_piloting_message_read_cb,
+					gap_device_piloting_message_write_cb,
+					server);
+
 	/*
 	 * WiFi List characteristic. Make the value dynamically read and
 	 * written via callbacks.
@@ -1064,6 +1073,13 @@ static void populate_gap_service(struct server *server)
 					gap_device_wifi_list_write_cb,
 					server);
 
+	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_3);
+	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE |
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
+					gap_device_name_ext_prop_read_cb,
+					NULL, server);
 
 	/*
 	 * WiFi Turning off characteristic. Make the value dynamically read and
@@ -1079,15 +1095,7 @@ static void populate_gap_service(struct server *server)
 					gap_device_wifi_turn_off_write_cb,
 					server);
 
-	bt_uuid16_create(&uuid, GATT_CHARAC_PILOTING_MESSAGE);
-	gatt_db_service_add_characteristic(service, &uuid,
-					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
-					BT_GATT_CHRC_PROP_READ |
-					BT_GATT_CHRC_PROP_WRITE |
-					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
-					gap_device_piloting_message_read_cb,
-					gap_device_piloting_message_write_cb,
-					server);
+
 
 	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_2);
 	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE |

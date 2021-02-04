@@ -300,6 +300,7 @@ static const struct {
 	{ 0x2802, "Include"					},
 	{ 0x2803, "Characteristic"				},
 	/* 0x2804 to 0x28ff undefined */
+	{ 0x28fe, "Characteristic Extended Properties 3"		},
 	{ 0x28ff, "Characteristic Extended Properties 2"		},
 	{ 0x2900, "Characteristic Extended Properties"		},
 	{ 0x2901, "Characteristic User Description"		},
