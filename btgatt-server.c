@@ -435,8 +435,10 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 	strncat(connect_to_wifi, " 2> ./bt_logs.txt ", 19);
 
 	PRLOG("%s", connect_to_wifi);
-	system("sudo nmcli device wifi list > /dev/null 2>&1");
 	system("umask 0; touch ./bt_logs.txt");
+	//sleep(5);
+	//system("sudo nmcli device wifi list 2> ./bt_logs.txt ");
+	//sleep(5);
 	system(connect_to_wifi);
 
 	int c;
@@ -457,49 +459,7 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 		}
 		printf("%s", error_buf);
 		fclose(file);
-		//system("rm bt_logs.txt");
-
-		if(!bt_gatt_server_send_notification(server->gatt,
-							server->wifi_turned_off,
-							error_buf,
-							1024))
-		{
-			printf("shit\n");
-		}
-
-		if(!bt_gatt_server_send_notification(server->gatt,
-							0x2941,
-							error_buf,
-							1024))
-		{
-			printf("shit2\n");
-		}
-
-		if(!bt_gatt_server_send_notification(server->gatt,
-					0x2902,
-					error_buf,
-					1024))
-		{
-			printf("shit3\n");
-		}
-
-		if(!bt_gatt_server_send_notification(server->gatt,
-			0x28ff,
-			error_buf,
-			1024))
-		{
-			printf("shit3\n");
-		}
-
-		if(!bt_gatt_server_send_indication(server->gatt, 0x2A05,
-							error_buf, 1024,
-							conf_cb, NULL, NULL))
-		printf("Failed to initiate indication\n");
 	}
-
-
-
-	///////////
 
 	len = i;
 	offset = 0;
@@ -793,7 +753,7 @@ static void gap_device_wifi_turn_off_read_cb(struct gatt_db_attribute *attrib,
 	size_t len = 0;
 	const uint8_t *value = NULL;
 
-	PRLOG("GAP WiFi Errors Read called\n");
+	PRLOG("GAP WiFi Errors Read called %s \n", server->wifi_error);
 
 	len = server->wifi_error_len;
 
