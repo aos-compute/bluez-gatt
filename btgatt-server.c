@@ -682,32 +682,12 @@ static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attri
 	char* linear = 0;
 	char* angular = 0;
 	char* taskCompleteButton = 0;
-
+	char *toFree, *str;
 	int cnt = 0;
+	toFree = str = strdup(value);
 
-	for(int i = 0; i < len; i++)
-	{
-		cnt++;
-		if(value[i] == ',')
-		{
-			if(!linear)
-			{
-				linear = (char*) malloc(cnt + 1);
-				strncpy(linear, value, cnt-1);
-				linear[cnt] = '\0';
-				printf("linear = %s", linear);
-				cnt = 0;
-			}
-			else if(!angular)
-			{
-				angular = (char*) malloc(cnt + 1);
-				strncpy(angular, value+strlen(linear) + 1, cnt-1);
-				angular[cnt] = '\0';
-				printf("angular = %s", angular);
-				cnt = 0;
-			}
-		}
-	}
+	linear = strsep(&str, ",");
+	angular = strsep(&str, ",");
 
 	if(!taskCompleteButton)
 	{
@@ -734,8 +714,7 @@ static void gap_device_piloting_message_write_cb(struct gatt_db_attribute *attri
 	send_udp_msg(linear, angular, taskCompleteButton);
 
 	free(taskCompleteButton);
-	free(angular);
-	free(linear);
+	free(toFree);
 
 done:
 	PRLOG("done");

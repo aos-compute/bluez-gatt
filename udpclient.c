@@ -21,8 +21,10 @@ int send_udp_msg(const char* linear, const char* angular, const char* taskComple
 
     char buffer[MAXLINE]; 
     const char *json1 = "{ \
+        \"type\": \"ISAAC.REQUEST\", \
+        \"data\":{ \
         \"linearAccelAxis\": { \
-            \"value\":";
+            \"value\": ";
 
     const char* json2 = ", \
             \"min\": 0, \
@@ -73,6 +75,7 @@ int send_udp_msg(const char* linear, const char* angular, const char* taskComple
             \"touched\": false \
             } \
         ] \
+        } \
         }";
     struct sockaddr_in     servaddr; 
   
@@ -102,12 +105,7 @@ int send_udp_msg(const char* linear, const char* angular, const char* taskComple
         MSG_CONFIRM, (const struct sockaddr *) &servaddr,  
             sizeof(servaddr)); 
     printf("UDP message sent.\n"); 
-          
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
-                MSG_WAITALL, (struct sockaddr *) &servaddr, 
-                &len); 
-    buffer[n] = '\0'; 
-    printf("UDP Server : %s\n", buffer); 
+
 
     close(sockfd);
   
