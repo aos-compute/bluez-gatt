@@ -99,7 +99,7 @@ int send_udp_msg(const char* linear, const char* angular, const char* taskComple
     strncat(msg, taskCompleteButton, strlen(taskCompleteButton) );
     strncat(msg, json4, strlen(json4) );
  
-    printf("UDP msg is: %s", msg);
+    // printf("UDP msg is: %s", msg);
       
     sendto(sockfd, msg, strlen(msg), 
         MSG_CONFIRM, (const struct sockaddr *) &servaddr,  
