@@ -977,7 +977,7 @@ static void populate_gap_service(struct server *server)
 	/* Add the GAP service */
 	//bt_uuid16_create(&uuid, UUID_GAP);
 	bt_uuid16_create(&uuid, GATT_SERVICE);
-	service = gatt_db_add_service(server->db, &uuid, true, 17);
+	service = gatt_db_add_service(server->db, &uuid, true, 19);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
