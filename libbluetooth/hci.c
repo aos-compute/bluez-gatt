@@ -2982,19 +2982,65 @@ le_set_advertising_data_cp ble_hci_params_for_set_adv_data(char * name)
 	le_set_advertising_data_cp adv_data_cp;
 	memset(&adv_data_cp, 0, sizeof(adv_data_cp));
 
-	// Build simple advertisement data bundle according to:
-	// - ​"Core Specification Supplement (CSS) v5" 
-	// ( https://www.bluetooth.org/en-us/specification/adopted-specifications )
+	// adv_data_cp.data[0] = 0x02; // Length.
+	// adv_data_cp.data[1] = 0x01; // Flags field.
+	// adv_data_cp.data[2] = 0x01; // LE Limited Discoverable Flag set
 
-	adv_data_cp.data[0] = 0x02; // Length.
-	adv_data_cp.data[1] = 0x01; // Flags field.
-	adv_data_cp.data[2] = 0x01; // LE Limited Discoverable Flag set
+	// adv_data_cp.data[3] = name_len + 1; // Length.
+	// adv_data_cp.data[4] = 0x09; // Name field.
+	// memcpy(adv_data_cp.data + 5, name, name_len);
 
-	adv_data_cp.data[3] = name_len + 1; // Length.
-	adv_data_cp.data[4] = 0x09; // Name field.
-	memcpy(adv_data_cp.data + 5, name, name_len);
+	// adv_data_cp.length = strlen(adv_data_cp.data);
 
-	adv_data_cp.length = strlen(adv_data_cp.data);
+	size_t i = 0;
+	adv_data_cp.data[i++] = 0x02; // Length.
+	adv_data_cp.data[i++] = 0x01; // Flags field.
+	adv_data_cp.data[i++] = 0x02; // LE Limited Discoverable Flag set //01
+
+	if (name_len != 0)
+	{
+		adv_data_cp.data[i++] = name_len + 1; // Length.
+		adv_data_cp.data[i++] = 0x09; // Name field.
+		memcpy(adv_data_cp.data + i, name, name_len);
+		i += name_len;
+	}
+
+	//const char* data = "01";
+
+	//int data_len = strlen(data);
+	//if (data_len != 0)
+	{
+		// uint16_t service_uuid = (uint16_t)strtol("1800", NULL, 16);
+		// adv_data_cp.data[i++] = 0x03; // Length.
+		// adv_data_cp.data[i++] = 0x03; // Service Data field.
+
+		// adv_data_cp.data[i++] = service_uuid & 0xff;
+		// adv_data_cp.data[i++] = service_uuid >> 8;
+
+		// adv_data_cp.data[i++] = 0x03; // Service Data field.
+		// adv_data_cp.data[i++] = 0x03; // Service Data field.
+
+		// adv_data_cp.data[i++] = 0x01;
+		// adv_data_cp.data[i++] = 0x18;
+
+		adv_data_cp.data[i++] = 0x03; // Service Data field.
+		adv_data_cp.data[i++] = 0x02; // Service Data field.
+
+		adv_data_cp.data[i++] = 0x44;
+		adv_data_cp.data[i++] = 0x29;
+
+		//memcpy(adv_data_cp.data + i, data, data_len);
+		//i += data_len;
+
+		// service_uuid = (uint16_t)strtol("1801", NULL, 16);
+		// adv_data_cp.data[i++] = 0x03; // Service Data field.
+		// adv_data_cp.data[i++] = service_uuid & 0xff;
+		// adv_data_cp.data[i++] = service_uuid >> 8;
+		//memcpy(adv_data_cp.data + i, data, data_len);
+		//i += data_len;
+	}
+
+	adv_data_cp.length = i;
 
 	return adv_data_cp;
 }

@@ -975,7 +975,8 @@ static void populate_gap_service(struct server *server)
 	uint16_t appearance;
 
 	/* Add the GAP service */
-	bt_uuid16_create(&uuid, UUID_GAP);
+	//bt_uuid16_create(&uuid, UUID_GAP);
+	bt_uuid16_create(&uuid, GATT_SERVICE);
 	service = gatt_db_add_service(server->db, &uuid, true, 17);
 
 	/*
@@ -991,10 +992,10 @@ static void populate_gap_service(struct server *server)
 					gap_device_name_write_cb,
 					server);
 
-	// bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
-	// gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
-	// 				gap_device_name_ext_prop_read_cb,
-	// 				NULL, server);
+	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
+	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
+					gap_device_name_ext_prop_read_cb,
+					NULL, server);
 
 	/*
 	 * Appearance characteristic. Reads and writes should obtain the value
