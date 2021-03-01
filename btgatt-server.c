@@ -332,7 +332,7 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 	struct server *server = user_data;
 	uint8_t error = 0;
 
-	PRLOG("GAP WiFi Name Write called\n");
+	PRLOG("GAP WiFi Con Up via Name Write called\n");
 
 	PRLOG("%s %d %d", value, offset, len);
 
@@ -371,6 +371,79 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 	}
 
 	PRLOG("name %s", server->wifi_name);
+
+
+	char con_up_wifi[100] = "sudo nmcli con up ";
+	strncat(con_up_wifi, server->wifi_name, server->wifi_len);
+	strncat(con_up_wifi, " 2> ./bt_con_up_logs.txt ", 19);
+
+	system("umask 0; touch ./bt_con_up_logs.txt");
+	int result = system(con_up_wifi);
+
+	int c;
+	FILE *file;
+	file = fopen("./bt_con_up_logs.txt", "r");
+
+	char error_buf[1024];
+	memset(error_buf, 0, 1024);
+
+	int i = 0;
+	
+	if (file) 
+	{
+		printf("logs from bt_con_up_logs: ");
+		while ((c = getc(file)) != EOF)
+		{
+			error_buf[i++] = c;
+		}
+		printf("%s", error_buf);
+		fclose(file);
+
+		if(strstr(error_buf, "unknown"))
+		{
+			printf("Unknown network, need to set password\n");
+
+			len = i;
+			offset = 0;
+
+			if (!(offset + len)) {
+				free(server->wifi_error);
+				server->wifi_error = NULL;
+				server->wifi_error_len = 0;
+				goto done;
+			}
+
+			/* Implement this as a variable length attribute value. */
+			if (offset > server->wifi_error_len) {
+				error = BT_ATT_ERROR_INVALID_OFFSET;
+				goto done;
+			}
+
+			if (offset + len != server->wifi_error_len) {
+				uint8_t *name;
+
+				name = realloc(server->wifi_error, offset + len);
+				if (!name) {
+					error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
+					goto done;
+				}
+
+				server->wifi_error = name;
+				server->wifi_error_len = offset + len;
+			}
+
+			if (error_buf)
+			{
+				strncpy(server->wifi_error, error_buf, len);
+				server->wifi_error_len = len;
+			}
+		}
+		else
+		{
+			//system("pm2 restart runner");
+		}
+		
+	}
 
 done:
 	gatt_db_attribute_write_result(attrib, id, error);
@@ -429,6 +502,7 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 	const char* password_word = " password ";
 	char* PASS = server->wifi_password;
 
+
   	strncat(connect_to_wifi, SSID, server->wifi_len);
 	strncat(connect_to_wifi, password_word, 10);
 	strncat(connect_to_wifi, PASS, server->wifi_password_len);
@@ -436,10 +510,12 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 
 	PRLOG("%s", connect_to_wifi);
 	system("umask 0; touch ./bt_logs.txt");
+
+	printf("result con up: %d\n");
 	//sleep(5);
 	//system("sudo nmcli device wifi list 2> ./bt_logs.txt ");
 	//sleep(5);
-	system(connect_to_wifi);
+	//system(connect_to_wifi);
 
 	int c;
 	FILE *file;
@@ -501,6 +577,9 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 done:
 	PRLOG("done");
 	gatt_db_attribute_write_result(attrib, id, error);
+
+	//sleep(15);
+	//system("pm2 restart runner");
 }
 
 
@@ -748,6 +827,61 @@ done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
 }
 
+static void wifi_command(int mode)
+{
+	system("umask 0; touch ./wifi_turn_off.txt");
+	system("nmcli -t connection show --active | egrep \"wireless|wifi\" > ./wifi_turn_off.txt");
+
+	int c;
+	FILE *file;
+	file = fopen("./wifi_turn_off.txt", "r");
+
+	int i = 0;
+	int cnt = 0;
+	
+	if (file) 
+	{
+		printf("logs from wifi_turn_off mode : %d\n", mode);
+		fseek(file, 0, SEEK_END);
+		long fsize = ftell(file);
+		fseek(file, 0, SEEK_SET);  /* same as rewind(f); */
+
+		char *string = malloc(fsize + 1);
+		fread(string, 1, fsize, file);
+		string[fsize] = 0;
+
+		char* ssid;
+		char* uuid;
+
+		char* dup = strdup(string);
+
+		ssid = strsep(&dup, ":");
+  		uuid = strsep(&dup, ":");
+
+		printf("ssid = %s\n", ssid);
+  		printf("uuid = %s\n", uuid);
+
+		if(mode == 0) // disconnect
+		{
+			char command[100] = "nmcli con down uuid ";
+			strcat(command, uuid);
+			system(command);
+		}
+		else
+		{
+			char command[100] = "nmcli con delete uuid ";
+			strcat(command, uuid);
+			system(command);
+		}
+		
+
+		fclose(file);
+		free(string);
+	}
+
+	PRLOG("done");
+}
+
 static void gap_device_wifi_turn_off_write_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					const uint8_t *value, size_t len,
@@ -756,9 +890,18 @@ static void gap_device_wifi_turn_off_write_cb(struct gatt_db_attribute *attrib,
 {
 	PRLOG("GAP WiFi Turn off Write called\n");
 
-	system("sudo nmcli radio wifi off");
+	wifi_command(0);
+}
 
-	PRLOG("done");
+static void gap_device_wifi_forget_write_cb(struct gatt_db_attribute *attrib,
+					unsigned int id, uint16_t offset,
+					const uint8_t *value, size_t len,
+					uint8_t opcode, struct bt_att *att,
+					void *user_data)
+{
+	PRLOG("GAP WiFi forget Write called\n");
+
+	wifi_command(1);
 }
 
 static void gap_device_name_ext_prop_read_cb(struct gatt_db_attribute *attrib,
@@ -977,7 +1120,7 @@ static void populate_gap_service(struct server *server)
 	/* Add the GAP service */
 	//bt_uuid16_create(&uuid, UUID_GAP);
 	bt_uuid16_create(&uuid, CUSTOM_SERVICE);
-	service = gatt_db_add_service(server->db, &uuid, true, 19);
+	service = gatt_db_add_service(server->db, &uuid, true, 21);
 
 	/*
 	 * Device Name characteristic. Make the value dynamically read and
@@ -1096,6 +1239,30 @@ static void populate_gap_service(struct server *server)
 
 
 	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_2);
+	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE |
+					BT_GATT_CHRC_PROP_READ |
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
+					gap_device_name_ext_prop_read_cb,
+					NULL, server);
+
+
+	/*
+	 * WiFi Turning off characteristic. Make the value dynamically read and
+	 * written via callbacks.
+	 */
+	bt_uuid16_create(&uuid, GATT_CHARAC_FORGET_WIFI);
+	tmp = gatt_db_service_add_characteristic(service, &uuid,
+					BT_ATT_PERM_WRITE,
+					BT_GATT_CHRC_PROP_WRITE |
+					BT_GATT_CHRC_PROP_EXT_PROP | BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE,
+					NULL,
+					gap_device_wifi_forget_write_cb,
+					server);
+
+
+
+	bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID_4);
 	gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE |
 					BT_GATT_CHRC_PROP_READ |
 					BT_GATT_CHRC_PROP_WRITE |
