@@ -375,7 +375,7 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 
 	char con_up_wifi[100] = "sudo nmcli con up ";
 	strncat(con_up_wifi, server->wifi_name, server->wifi_len);
-	strncat(con_up_wifi, " 2> ./bt_con_up_logs.txt ", 19);
+	strncat(con_up_wifi, " 2> ./bt_con_up_logs.txt ", 26);
 
 	system("umask 0; touch ./bt_con_up_logs.txt");
 	int result = system(con_up_wifi);
