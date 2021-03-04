@@ -69,10 +69,6 @@
 #include "src/shared/gatt-db.h"
 #include "src/shared/gatt-server.h"
 
-//#include <glib-2.0/glib.h>
-//#include <NetworkManager/NetworkManager.h>
-//#include <libnm-glib/libnm_glib.h>
-//#include <libnm-glib/nm-client.h>
 #include "btgatt-server.h"
 #include "udpclient.h"
 
@@ -106,7 +102,7 @@
 
 static const char test_device_name[] = "Yezhik_1234";
 
-static const char test_wifi_name[] = "WIFI_TEST_NAME";
+static const char test_wifi_ssid[] = "WIFI_TEST_NAME";
 
 static const char test_wifi_password[] = "12345678";
 
@@ -125,7 +121,7 @@ struct server {
 	uint8_t *device_name;
 	size_t name_len;
 	
-	uint8_t *wifi_name;
+	uint8_t *wifi_ssid;
 	size_t wifi_len;
 
 	uint8_t *wifi_password;
@@ -210,7 +206,7 @@ done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
 }
 
-static void gap_device_wifi_read_cb(struct gatt_db_attribute *attrib,
+static void gap_device_wifi_ssid_read_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					uint8_t opcode, struct bt_att *att,
 					void *user_data)
@@ -220,7 +216,7 @@ static void gap_device_wifi_read_cb(struct gatt_db_attribute *attrib,
 	size_t len = 0;
 	const uint8_t *value = NULL;
 
-	PRLOG("GAP WiFi Name Read called\n");
+	PRLOG("GAP WiFi SSID Read called\n");
 
 	len = server->wifi_len;
 
@@ -230,7 +226,7 @@ static void gap_device_wifi_read_cb(struct gatt_db_attribute *attrib,
 	}
 
 	len -= offset;
-	value = len ? &server->wifi_name[offset] : NULL;
+	value = len ? &server->wifi_ssid[offset] : NULL;
 
 done:
 	gatt_db_attribute_read_result(attrib, id, error, value, len);
@@ -323,7 +319,7 @@ done:
 	gatt_db_attribute_write_result(attrib, id, error);
 }
 
-static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
+static void gap_device_wifi_ssid_write_cb(struct gatt_db_attribute *attrib,
 					unsigned int id, uint16_t offset,
 					const uint8_t *value, size_t len,
 					uint8_t opcode, struct bt_att *att,
@@ -332,15 +328,15 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 	struct server *server = user_data;
 	uint8_t error = 0;
 
-	PRLOG("GAP WiFi Con Up via Name Write called\n");
+	PRLOG("GAP WiFi SSID Write called\n");
 
 	PRLOG("%s %d %d", value, offset, len);
 
 
 	/* If the value is being completely truncated, clean up and return */
 	if (!(offset + len)) {
-		free(server->wifi_name);
-		server->wifi_name = NULL;
+		free(server->wifi_ssid);
+		server->wifi_ssid = NULL;
 		server->wifi_len = 0;
 		goto done;
 	}
@@ -354,27 +350,27 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 	if (offset + len != server->wifi_len) {
 		uint8_t *name;
 
-		name = realloc(server->wifi_name, offset + len);
+		name = realloc(server->wifi_ssid, offset + len);
 		if (!name) {
 			error = BT_ATT_ERROR_INSUFFICIENT_RESOURCES;
 			goto done;
 		}
 
-		server->wifi_name = name;
+		server->wifi_ssid = name;
 		server->wifi_len = offset + len;
 	}
 
 	if (value)
 	{
-		strncpy(server->wifi_name, value, len);
+		strncpy(server->wifi_ssid, value, len);
 		server->wifi_len = len;
 	}
 
-	PRLOG("name %s", server->wifi_name);
+	PRLOG("wifi ssid %s\n", server->wifi_ssid);
 
 
 	char con_up_wifi[100] = "sudo nmcli con up ";
-	strncat(con_up_wifi, server->wifi_name, server->wifi_len);
+	strncat(con_up_wifi, server->wifi_ssid, server->wifi_len);
 	strncat(con_up_wifi, " 2> ./bt_con_up_logs.txt ", 26);
 
 	system("umask 0; touch ./bt_con_up_logs.txt");
@@ -442,6 +438,7 @@ static void gap_device_wifi_write_cb(struct gatt_db_attribute *attrib,
 		{
 			//system("pm2 restart runner");
 		}
+		system("rm ./bt_con_up_logs.txt");
 		
 	}
 
@@ -496,26 +493,21 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 	}
 
 	char connect_to_wifi[100] = "sudo nmcli d wifi connect ";
-	char* SSID = server->wifi_name; //"\"";
-	//strncat(SSID, server->wifi_name, server->wifi_len);
-	//strncat(SSID, "\"", 2);
+	char* SSID = server->wifi_ssid;
 	const char* password_word = " password ";
 	char* PASS = server->wifi_password;
 
 
   	strncat(connect_to_wifi, SSID, server->wifi_len);
-	strncat(connect_to_wifi, password_word, 10);
+	strncat(connect_to_wifi, password_word, 11);
 	strncat(connect_to_wifi, PASS, server->wifi_password_len);
 	strncat(connect_to_wifi, " 2> ./bt_logs.txt ", 19);
 
 	PRLOG("%s", connect_to_wifi);
 	system("umask 0; touch ./bt_logs.txt");
 
-	printf("result con up: %d\n");
-	//sleep(5);
-	//system("sudo nmcli device wifi list 2> ./bt_logs.txt ");
-	//sleep(5);
-	//system(connect_to_wifi);
+	//sleep
+	system(connect_to_wifi);
 
 	int c;
 	FILE *file;
@@ -535,6 +527,7 @@ static void gap_device_wifi_password_write_cb(struct gatt_db_attribute *attrib,
 		}
 		printf("%s", error_buf);
 		fclose(file);
+		system("rm ./bt_logs.txt");
 	}
 
 	len = i;
@@ -623,8 +616,6 @@ static void gap_device_wifi_list_write_cb(struct gatt_db_attribute *attrib,
 
 	PRLOG("GAP WiFi List Write called\n");
 
-		//////////////////////////////////////////////////////////
-
 	system("umask 0; touch ./wifi_list.txt");
 	system("nmcli device wifi rescan");
 	sleep(10);
@@ -710,7 +701,7 @@ static void gap_device_wifi_list_write_cb(struct gatt_db_attribute *attrib,
 		json[strlen(json) - 1] = '}';
 		printf("json = %s\n", json);
 		fclose(file);
-		//system("rm ./wifi_list.txt");
+		system("rm ./wifi_list.txt");
 	}
 
 	len = strlen(json);
@@ -811,7 +802,7 @@ static void gap_device_wifi_turn_off_read_cb(struct gatt_db_attribute *attrib,
 	size_t len = 0;
 	const uint8_t *value = NULL;
 
-	PRLOG("GAP WiFi Errors Read called %s \n", server->wifi_error);
+	PRLOG("GAP WiFi Get Errors Read called (from Turn OFF characteristics - 2941): %s\n", server->wifi_error);
 
 	len = server->wifi_error_len;
 
@@ -877,6 +868,7 @@ static void wifi_command(int mode)
 
 		fclose(file);
 		free(string);
+		system("rm ./wifi_turn_off.txt");
 	}
 
 	PRLOG("done");
@@ -1165,14 +1157,14 @@ static void populate_gap_service(struct server *server)
 	 * WiFi Name characteristic. Make the value dynamically read and
 	 * written via callbacks.
 	 */
-	bt_uuid16_create(&uuid, GATT_CHARAC_WIFI_NAME);
+	bt_uuid16_create(&uuid, GATT_CHARAC_WIFI_SSID);
 	gatt_db_service_add_characteristic(service, &uuid,
 					BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
 					BT_GATT_CHRC_PROP_NOTIFY | BT_GATT_CHRC_PROP_INDICATE | BT_GATT_CHRC_PROP_READ |
 					BT_GATT_CHRC_PROP_WRITE |
 					BT_GATT_CHRC_PROP_EXT_PROP,
-					gap_device_wifi_read_cb,
-					gap_device_wifi_write_cb,
+					gap_device_wifi_ssid_read_cb,
+					gap_device_wifi_ssid_write_cb,
 					server);
 
 	gatt_db_service_set_active(service, true);
@@ -1366,7 +1358,7 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 	struct server *server;
 	size_t name_len = strlen(test_device_name);
 
-	size_t wifi_len = strlen(test_wifi_name);
+	size_t wifi_len = strlen(test_wifi_ssid);
 
 	server = new0(struct server, 1);
 	if (!server) {
@@ -1404,14 +1396,14 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 
 
 	server->wifi_len = wifi_len + 1;
-	server->wifi_name = malloc(wifi_len + 1);
-	if (!server->wifi_name) {
+	server->wifi_ssid = malloc(wifi_len + 1);
+	if (!server->wifi_ssid) {
 		fprintf(stderr, "Failed to allocate memory for wifi name\n");
 		goto fail;
 	}
 
-	memcpy(server->wifi_name, test_wifi_name, wifi_len);
-	server->wifi_name[wifi_len] = '\0';
+	memcpy(server->wifi_ssid, test_wifi_ssid, wifi_len);
+	server->wifi_ssid[wifi_len] = '\0';
 
 
 	server->fd = fd;
@@ -1446,7 +1438,7 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 fail:
 	gatt_db_unref(server->db);
 	free(server->device_name);
-	free(server->wifi_name);
+	free(server->wifi_ssid);
 	bt_att_unref(server->att);
 	free(server);
 
